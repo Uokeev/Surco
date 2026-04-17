@@ -8,7 +8,7 @@
 
 <script type="module">
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
-import { getAuth, GoogleAuthProvider, signInWithRedirect, getRedirectResult, signOut, onAuthStateChanged }
+import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, signOut, onAuthStateChanged }
   from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
 import { getFirestore, collection, addDoc, query, where, orderBy, limit,
          getDocs, serverTimestamp, doc, setDoc, getDoc, increment }
@@ -35,19 +35,10 @@ const provider = new GoogleAuthProvider();
 
 let currentUser = null;
 
-/* Manejar resultado del redirect de Google */
+/* Capturar resultado si venimos de un redirect */
 getRedirectResult(auth).then(result => {
-  if (result?.user) {
-    // Login exitoso via redirect, onAuthStateChanged lo maneja
-    console.log('Redirect login ok');
-  }
-}).catch(e => {
-  if (e.code !== 'auth/no-current-user') {
-    alert('Error al iniciar sesión: ' + e.message);
-    document.getElementById('login-btn').style.display = 'flex';
-    document.getElementById('login-loading').style.display = 'none';
-  }
-});
+  if (result?.user) console.log('Login via redirect ok');
+}).catch(e => console.warn('getRedirectResult:', e.code));
 let imgBase64   = null;
 let imgMime     = 'image/jpeg';
 let imgBlob     = null;
@@ -81,14 +72,18 @@ onAuthStateChanged(auth, async user => {
 });
 
 window.loginGoogle = async () => {
+  document.getElementById('login-btn').style.display     = 'none';
+  document.getElementById('login-loading').style.display = 'flex';
   try {
-    document.getElementById('login-btn').style.display     = 'none';
-    document.getElementById('login-loading').style.display = 'flex';
-    await signInWithRedirect(auth, provider);
+    await signInWithPopup(auth, provider);
   } catch(e) {
-    document.getElementById('login-btn').style.display     = 'flex';
-    document.getElementById('login-loading').style.display = 'none';
-    alert('Error al iniciar sesión: ' + e.message);
+    if (['auth/popup-blocked','auth/popup-closed-by-user','auth/cancelled-popup-request'].includes(e.code)) {
+      await signInWithRedirect(auth, provider);
+    } else {
+      document.getElementById('login-btn').style.display     = 'flex';
+      document.getElementById('login-loading').style.display = 'none';
+      alert('Error: ' + e.message + ' (' + e.code + ')');
+    }
   }
 };
 
