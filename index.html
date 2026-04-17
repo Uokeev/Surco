@@ -8,7 +8,7 @@
 
 <script type="module">
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
-import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged }
+import { getAuth, GoogleAuthProvider, signInWithRedirect, getRedirectResult, signOut, onAuthStateChanged }
   from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
 import { getFirestore, collection, addDoc, query, where, orderBy, limit,
          getDocs, serverTimestamp, doc, setDoc, getDoc, increment }
@@ -34,6 +34,20 @@ const storage  = getStorage(app);
 const provider = new GoogleAuthProvider();
 
 let currentUser = null;
+
+/* Manejar resultado del redirect de Google */
+getRedirectResult(auth).then(result => {
+  if (result?.user) {
+    // Login exitoso via redirect, onAuthStateChanged lo maneja
+    console.log('Redirect login ok');
+  }
+}).catch(e => {
+  if (e.code !== 'auth/no-current-user') {
+    alert('Error al iniciar sesión: ' + e.message);
+    document.getElementById('login-btn').style.display = 'flex';
+    document.getElementById('login-loading').style.display = 'none';
+  }
+});
 let imgBase64   = null;
 let imgMime     = 'image/jpeg';
 let imgBlob     = null;
@@ -70,7 +84,7 @@ window.loginGoogle = async () => {
   try {
     document.getElementById('login-btn').style.display     = 'none';
     document.getElementById('login-loading').style.display = 'flex';
-    await signInWithPopup(auth, provider);
+    await signInWithRedirect(auth, provider);
   } catch(e) {
     document.getElementById('login-btn').style.display     = 'flex';
     document.getElementById('login-loading').style.display = 'none';
