@@ -13,8 +13,7 @@ import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRe
 import { getFirestore, collection, addDoc, query, where, orderBy, limit,
          getDocs, serverTimestamp, doc, setDoc, getDoc, increment }
   from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
-import { getStorage, ref, uploadBytes, getDownloadURL }
-  from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-storage.js';
+// Storage no usado
 
 const firebaseConfig = {
   apiKey:            "AIzaSyD2Vp0uWO-UGvizXR6rZg3RVOO1Fz6ACzM",
@@ -30,7 +29,7 @@ const WORKER_URL = "https://snowy-river-dcdc.rodolfobaquedano1.workers.dev";
 const app      = initializeApp(firebaseConfig);
 const auth     = getAuth(app);
 const db       = getFirestore(app);
-const storage  = getStorage(app);
+// const storage = getStorage(app); // no usado
 const provider = new GoogleAuthProvider();
 
 let currentUser = null;
@@ -246,11 +245,8 @@ Considera estas condiciones para evaluar riesgo de propagación y urgencia del t
   animSteps();
 
   try {
-    /* 1 — Subir foto a Storage */
-    const photoPath = `fotos/${currentUser.uid}/${Date.now()}.jpg`;
-    const storageRef = ref(storage, photoPath);
-    await uploadBytes(storageRef, imgBlob);
-    const photoURL = await getDownloadURL(storageRef);
+    /* 1 — Sin Storage: usamos base64 directo */
+    const photoURL = null; // no hay Storage
 
     /* 2 — Llamar al Worker proxy */
     // Cargar enfermedades SAG relevantes para el cultivo
@@ -323,7 +319,7 @@ Severidad debe ser EXACTAMENTE "Alta", "Media" o "Baja". Confianza entre 55 y 97
     /* 3 — Guardar diagnóstico en Firestore */
     await addDoc(collection(db, 'diagnosticos'), {
       userId: currentUser.uid, userName: currentUser.displayName,
-      crop, region, symptoms, photoURL, storagePath: photoPath,
+      crop, region, symptoms,
       clima: weatherData || null,
       enfermedad: r.enfermedad, nombre_cientifico: r.nombre_cientifico,
       severidad: r.severidad, confianza: r.confianza,
@@ -400,9 +396,11 @@ window.verDetalle = async (id) => {
 function renderResult(r, crop, region, photoURL) {
   const sc     = r.severidad === 'Alta' ? 'sv-alta' : r.severidad === 'Media' ? 'sv-media' : 'sv-baja';
   const treats = (r.tratamiento || []).map(t => `<div class="treat-item">${t}</div>`).join('');
-  const photoBlock = photoURL
+  // Usar preview local de la imagen
+  const localPreview = document.getElementById('preview-img')?.src;
+  const photoBlock = localPreview && localPreview.startsWith('data:')
     ? `<div style="margin-bottom:14px;border-radius:16px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,.1);">
-         <img src="${photoURL}" style="width:100%;max-height:220px;object-fit:cover;display:block;"/>
+         <img src="${localPreview}" style="width:100%;max-height:220px;object-fit:cover;display:block;"/>
        </div>` : '';
 
   document.getElementById('result-body').innerHTML = `
