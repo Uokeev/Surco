@@ -103,14 +103,34 @@ window.goTo = (id) => {
 window.handleImage = (e) => {
   const file = e.target.files[0];
   if (!file) return;
-  imgMime = file.type || 'image/jpeg';
+  imgMime = 'image/jpeg';
   imgBlob = file;
+
   const reader = new FileReader();
   reader.onload = ev => {
-    imgBase64 = ev.target.result.split(',')[1];
-    document.getElementById('preview-img').src = ev.target.result;
-    document.getElementById('preview-box').classList.add('show');
-    document.getElementById('upload-zone').style.display = 'none';
+    const original = ev.target.result;
+    // Comprimir con canvas antes de enviar
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      // Máximo 1200px en el lado más largo
+      const MAX = 1200;
+      let w = img.width, h = img.height;
+      if (w > h && w > MAX) { h = Math.round(h * MAX / w); w = MAX; }
+      else if (h > w && h > MAX) { w = Math.round(w * MAX / h); h = MAX; }
+      else if (w > MAX) { w = MAX; h = MAX; }
+      canvas.width  = w;
+      canvas.height = h;
+      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+      // Calidad 0.8 → ~300-600kb
+      const compressed = canvas.toDataURL('image/jpeg', 0.8);
+      imgBase64 = compressed.split(',')[1];
+      imgMime   = 'image/jpeg';
+      document.getElementById('preview-img').src = compressed;
+      document.getElementById('preview-box').classList.add('show');
+      document.getElementById('upload-zone').style.display = 'none';
+    };
+    img.src = original;
   };
   reader.readAsDataURL(file);
 };
@@ -230,6 +250,7 @@ window.startAnalysis = async () => {
   const crop     = document.getElementById('crop-type').value || 'cultivo no especificado';
   const region   = document.getElementById('region').value    || weatherData?.region || 'Chile';
   const symptoms = document.getElementById('symptoms-text').value;
+  const usoTipo  = document.getElementById('uso-tipo')?.value || 'hogar';
 
   // Contexto climático para el prompt
   const climaCtx = weatherData ? `
@@ -252,17 +273,24 @@ Considera estas condiciones para evaluar riesgo de propagación y urgencia del t
     // Cargar enfermedades SAG relevantes para el cultivo
     let contextSAG = '';
     try {
-      const sagQuery = query(
-        collection(db, 'enfermedades_sag'),
-        where('cultivo', '==', crop)
-      );
-      const sagSnap = await getDocs(sagQuery);
-      if (!sagSnap.empty) {
-        const lista = sagSnap.docs.map(d => {
+      // Buscar por cultivo exacto y también polífagos (Otro/General)
+      const [sagSnap1, sagSnap2] = await Promise.all([
+        getDocs(query(collection(db, 'enfermedades_sag'), where('cultivo', '==', crop))),
+        getDocs(query(collection(db, 'enfermedades_sag'), where('cultivo', '==', 'Otro')))
+      ]);
+      const todosLosDocs = [...sagSnap1.docs, ...sagSnap2.docs];
+      if (todosLosDocs.length > 0) {
+        const lista = todosLosDocs.map(d => {
           const e = d.data();
-          return `- ${e.nombre} (${e.nombre_cientifico}): ${e.sintomas} | Solución: ${e.solucion} | Producto SAG: ${e.producto_sag}`;
+          const productos = usoTipo === 'hogar'
+            ? (e.alternativa_hogar || e.productos_certificados_sag?.[0] || '')
+            : (e.productos_certificados_sag || []).join(' | ');
+          return `- ${e.nombre} (${e.nombre_cientifico}): ${e.sintomas} | Causa: ${e.causa} | Tratamiento: ${productos} | Urgencia: ${e.urgencia}`;
         }).join('\n');
-        contextSAG = `\n\nBASE DE ENFERMEDADES SAG/INIA PARA ${crop.toUpperCase()} EN CHILE:\n${lista}`;
+        const contextoUsuario = usoTipo === 'hogar'
+          ? 'El usuario es una persona común con huerto doméstico o jardín. Priorizar soluciones caseras, orgánicas y simples.'
+          : 'El usuario es un agricultor profesional. Incluir productos certificados SAG con dosis exactas.';
+        contextSAG = `\n\n${contextoUsuario}\n\nBASE SAG/INIA PARA ${crop.toUpperCase()}:\n${lista}`;
       }
     } catch(e) { console.warn('SAG context:', e); }
 
@@ -763,10 +791,23 @@ body{font-family:var(--sans);background:#ddd8cf;min-height:100vh;display:flex;ju
         <label class="form-label">Tipo de cultivo</label>
         <select class="form-el" id="crop-type">
           <option value="">— Seleccionar —</option>
-          <option>Tomate</option><option>Vid / Uva</option><option>Lechuga</option>
-          <option>Maíz</option><option>Papa</option><option>Trigo</option>
-          <option>Palto / Aguacate</option><option>Arándano</option><option>Manzana</option>
-          <option>Pepino</option><option>Pimiento</option><option>Frutilla</option><option>Otro</option>
+          <optgroup label="🥬 Hortalizas">
+            <option>Tomate</option><option>Lechuga</option><option>Papa</option>
+            <option>Pepino</option><option>Pimiento</option><option>Zapallo</option>
+            <option>Brócoli / Repollo</option>
+          </optgroup>
+          <optgroup label="🍎 Frutales">
+            <option>Manzana</option><option>Peral</option><option>Cerezo</option>
+            <option>Duraznero</option><option>Ciruelo</option><option>Palto / Aguacate</option>
+            <option>Arándano</option><option>Frutilla</option><option>Nogal</option>
+            <option>Vid / Uva</option><option>Naranjo / Limón</option>
+          </optgroup>
+          <optgroup label="🌾 Cereales">
+            <option>Maíz</option><option>Trigo</option>
+          </optgroup>
+          <optgroup label="🌿 Otro">
+            <option>Planta ornamental</option><option>Otro</option>
+          </optgroup>
         </select>
       </div>
       <div class="form-row">
@@ -777,6 +818,13 @@ body{font-family:var(--sans);background:#ddd8cf;min-height:100vh;display:flex;ju
           <option>Región de O'Higgins</option><option>Región de Valparaíso</option>
           <option>Región Metropolitana</option><option>Región de La Araucanía</option>
           <option>Región de Los Lagos</option><option>Otra región</option>
+        </select>
+      </div>
+      <div class="form-row">
+        <label class="form-label">¿Para qué usas la planta?</label>
+        <select class="form-el" id="uso-tipo">
+          <option value="hogar">🏡 Huerto doméstico / jardín</option>
+          <option value="agricultor">🌾 Producción agrícola</option>
         </select>
       </div>
       <div class="form-row">
