@@ -393,15 +393,27 @@ window.verDetalle = async (id) => {
 };
 
 /* ══ RENDER RESULTADO ══ */
+let currentStep = 0;
+let totalSteps  = 0;
+
 function renderResult(r, crop, region, photoURL) {
-  const sc     = r.severidad === 'Alta' ? 'sv-alta' : r.severidad === 'Media' ? 'sv-media' : 'sv-baja';
-  const treats = (r.tratamiento || []).map(t => `<div class="treat-item">${t}</div>`).join('');
-  // Usar preview local de la imagen
+  const sc = r.severidad === 'Alta' ? 'sv-alta' : r.severidad === 'Media' ? 'sv-media' : 'sv-baja';
   const localPreview = document.getElementById('preview-img')?.src;
   const photoBlock = localPreview && localPreview.startsWith('data:')
     ? `<div style="margin-bottom:14px;border-radius:16px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,.1);">
          <img src="${localPreview}" style="width:100%;max-height:220px;object-fit:cover;display:block;"/>
        </div>` : '';
+
+  // Guardar pasos para navegación
+  window._tratamientoPasos = r.tratamiento || [];
+  currentStep = 0;
+  totalSteps  = window._tratamientoPasos.length;
+
+  // Búsqueda de locales en Maps
+  const productoQuery   = encodeURIComponent((r.tratamiento?.[0] || '').split(':')[0] + ' agroveterinaria');
+  const mapsQueryGeo    = userCoords
+    ? `https://www.google.com/maps/search/agroveterinaria+productos+fitosanitarios/@${userCoords.lat},${userCoords.lon},13z`
+    : `https://www.google.com/maps/search/agroveterinaria+productos+fitosanitarios+Chile`;
 
   document.getElementById('result-body').innerHTML = `
     ${photoBlock}
@@ -420,37 +432,85 @@ function renderResult(r, crop, region, photoURL) {
         <div class="i-text" style="margin-bottom:0">${r.causa || '—'}</div>
       </div>
     </div>
+
     <div class="conf-wrap">
       <div class="conf-row"><span class="conf-l">Confianza del diagnóstico</span><span class="conf-v">${r.confianza || 0}%</span></div>
       <div class="conf-track"><div class="conf-fill" id="cbar" style="width:0%"></div></div>
     </div>
-    ${r.cuando_actuar ? `<div class="info-row ir-warn" style="margin-bottom:14px">
+
+    ${r.cuando_actuar ? `<div class="info-row ir-warn">
       <div class="ir-icon">🕐</div>
       <div class="ir-text"><strong>¿Cuándo actuar?</strong> ${r.cuando_actuar}</div>
     </div>` : ''}
+
+    <!-- PASOS DE TRATAMIENTO -->
     <div class="treat-wrap">
       <div class="treat-title">💊 Qué hacer — paso a paso</div>
-      ${treats}
+      <div class="step-counter" id="step-counter">Paso 1 de ${totalSteps}</div>
+      <div class="step-card" id="step-card">
+        <div class="step-num">1</div>
+        <div class="step-text" id="step-text">${window._tratamientoPasos[0] || ''}</div>
+      </div>
+      <div class="step-nav">
+        <button class="step-btn step-prev" id="btn-prev" onclick="cambiarPaso(-1)" disabled>← Anterior</button>
+        <button class="step-btn step-next" id="btn-next" onclick="cambiarPaso(1)" ${totalSteps <= 1 ? 'disabled' : ''}>Siguiente →</button>
+      </div>
+      <div class="step-dots" id="step-dots">
+        ${window._tratamientoPasos.map((_,i) => `<div class="step-dot-ind ${i===0?'active':''}" id="dot-ind-${i}"></div>`).join('')}
+      </div>
     </div>
-    ${r.donde_comprar ? `<div class="info-row ir-green"><div class="ir-icon">🏪</div><div class="ir-text"><strong>¿Dónde comprar?</strong> ${r.donde_comprar}</div></div>` : ''}
+
+    <!-- LOCALES CERCANOS -->
+    <button onclick="window.open('${mapsQueryGeo}', '_blank')" style="width:100%;background:var(--dark);color:white;border:none;border-radius:14px;padding:15px 20px;font-size:15px;font-weight:600;font-family:var(--sans);cursor:pointer;display:flex;align-items:center;justify-content:center;gap:10px;margin-bottom:14px;">
+      📍 Ver agroveterinarias cercanas
+    </button>
+
     <div class="info-row ir-warn">
       <div class="ir-icon">⚠️</div>
       <div class="ir-text"><strong>¿Se contagia?</strong> ${r.alerta_propagacion || '—'}</div>
     </div>
-    ${weatherData ? `<div class="info-row ir-green" style="margin-bottom:14px">
+
+    ${weatherData ? `<div class="info-row ir-green">
       <div class="ir-icon">🌡️</div>
       <div class="ir-text" style="font-size:13px;">
-        <strong>Clima al momento del diagnóstico</strong><br>
-        ${weatherData.ciudad} · ${weatherData.temperatura}°C · ${weatherData.humedad}% humedad · ${weatherData.precipitacion}mm precipitación
+        <strong>Clima al diagnóstico</strong><br>
+        ${weatherData.ciudad} · ${weatherData.temperatura}°C · ${weatherData.humedad}% humedad · ${weatherData.precipitacion}mm
       </div>
     </div>` : ''}
+
     <div class="footer-note">Basado en guías SAG / INIA · ${crop} · ${region}</div>
   `;
+
   setTimeout(() => {
     const b = document.getElementById('cbar');
     if (b) b.style.width = (r.confianza || 0) + '%';
   }, 120);
 }
+
+window.cambiarPaso = (dir) => {
+  const pasos = window._tratamientoPasos || [];
+  currentStep = Math.max(0, Math.min(pasos.length - 1, currentStep + dir));
+
+  document.getElementById('step-text').textContent    = pasos[currentStep] || '';
+  document.getElementById('step-counter').textContent = `Paso ${currentStep + 1} de ${pasos.length}`;
+  document.getElementById('btn-prev').disabled        = currentStep === 0;
+  document.getElementById('btn-next').disabled        = currentStep === pasos.length - 1;
+
+  // Animar entrada
+  const card = document.getElementById('step-card');
+  card.style.opacity   = '0';
+  card.style.transform = 'translateX(' + (dir > 0 ? '20px' : '-20px') + ')';
+  setTimeout(() => {
+    card.style.transition = 'opacity 0.25s, transform 0.25s';
+    card.style.opacity    = '1';
+    card.style.transform  = 'translateX(0)';
+  }, 50);
+
+  // Dots
+  document.querySelectorAll('.step-dot-ind').forEach((d, i) => {
+    d.classList.toggle('active', i === currentStep);
+  });
+};
 
 /* ══ STEPS ══ */
 function animSteps() {
@@ -590,6 +650,22 @@ body{font-family:var(--sans);background:#ddd8cf;min-height:100vh;display:flex;ju
 .ir-green{background:var(--light);border:1px solid rgba(30,61,43,.2);}
 .ir-icon{font-size:22px;flex-shrink:0;}.ir-text{font-size:14px;color:var(--text);line-height:1.65;}
 .footer-note{font-size:12px;color:var(--muted);text-align:center;padding-top:4px;}
+
+/* STEP BY STEP */
+.step-counter{font-size:12px;color:var(--muted);font-weight:500;margin-bottom:10px;text-align:center;letter-spacing:.3px;}
+.step-card{background:white;border-radius:14px;border:1px solid var(--border);padding:18px;margin-bottom:14px;display:flex;gap:14px;align-items:flex-start;min-height:90px;transition:opacity 0.25s,transform 0.25s;}
+.step-num{width:32px;height:32px;border-radius:50%;background:var(--dark);color:white;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;flex-shrink:0;margin-top:2px;}
+.step-text{font-size:15px;color:var(--text);line-height:1.65;flex:1;}
+.step-nav{display:flex;gap:10px;margin-bottom:12px;}
+.step-btn{flex:1;padding:12px;border-radius:11px;border:1.5px solid var(--border);background:white;font-size:14px;font-weight:600;color:var(--dark);cursor:pointer;font-family:var(--sans);transition:background .15s;}
+.step-btn:active{background:var(--light);}
+.step-btn:disabled{color:var(--muted);border-color:rgba(0,0,0,.06);cursor:default;background:rgba(0,0,0,.03);}
+.step-prev{}
+.step-next{background:var(--dark);color:white;border-color:var(--dark);}
+.step-next:disabled{background:rgba(0,0,0,.08);border-color:transparent;color:var(--muted);}
+.step-dots{display:flex;justify-content:center;gap:7px;margin-bottom:4px;}
+.step-dot-ind{width:7px;height:7px;border-radius:50%;background:rgba(0,0,0,.15);transition:background .2s,transform .2s;}
+.step-dot-ind.active{background:var(--dark);transform:scale(1.2);}
 </style>
 </head>
 <body>
