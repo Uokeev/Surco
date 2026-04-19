@@ -141,21 +141,59 @@ window.startAnalysis = async () => {
     const photoURL = await getDownloadURL(storageRef);
 
     /* 2 — Llamar al Worker proxy */
-    const prompt = `Eres el motor de diagnóstico fitosanitario de Surco, app para agricultores chilenos.
-Agricultor en ${region}, cultivo: ${crop}.${symptoms ? ` Observa: "${symptoms}".` : ''} Adjuntas foto de la planta.
+    // Cargar enfermedades SAG relevantes para el cultivo
+    let contextSAG = '';
+    try {
+      const sagQuery = query(
+        collection(db, 'enfermedades_sag'),
+        where('cultivo', '==', crop)
+      );
+      const sagSnap = await getDocs(sagQuery);
+      if (!sagSnap.empty) {
+        const lista = sagSnap.docs.map(d => {
+          const e = d.data();
+          return `- ${e.nombre} (${e.nombre_cientifico}): ${e.sintomas} | Solución: ${e.solucion} | Producto SAG: ${e.producto_sag}`;
+        }).join('\n');
+        contextSAG = `\n\nBASE DE ENFERMEDADES SAG/INIA PARA ${crop.toUpperCase()} EN CHILE:\n${lista}`;
+      }
+    } catch(e) { console.warn('SAG context:', e); }
+
+    const prompt = `Eres el motor de diagnóstico fitosanitario de Surco, aplicación oficial para agricultores chilenos basada en normativas SAG e INIA.
+
+DATOS DEL AGRICULTOR:
+- Región: ${region}
+- Cultivo: ${crop}
+- Síntomas observados: ${symptoms || 'No especificados'}
+- Adjunta foto real de la planta afectada${contextSAG}
+
+INSTRUCCIONES:
+1. Analiza DETALLADAMENTE la imagen adjunta buscando: color de manchas, forma, patrón, tejido afectado (hoja/tallo/fruto/raíz), distribución en la planta.
+2. Compara lo que ves con la base SAG/INIA del cultivo indicado.
+3. Si no puedes ver claramente la planta o la imagen es de mala calidad, indícalo en sintomas_detectados.
+4. Explica TODO en lenguaje simple como si hablaras con un agricultor sin formación técnica.
+5. Los productos deben estar disponibles en agroveterinarias de Chile.
+
 Responde ÚNICAMENTE con JSON válido sin texto adicional ni backticks:
 {
-  "enfermedad":"nombre común",
-  "nombre_cientifico":"nombre científico",
-  "severidad":"Alta",
-  "confianza":85,
-  "causa":"explicación breve lenguaje simple, 1-2 oraciones",
-  "sintomas_detectados":"síntomas visuales detectados, 1-2 oraciones",
-  "tratamiento":["Producto 1: nombre comercial Chile + dosis y frecuencia","Producto 2: alternativa con dosis","Medida cultural preventiva"],
-  "alerta_propagacion":"riesgo de propagación 1 oración",
-  "donde_comprar":"tipo de agroveterinaria o punto de venta en Chile"
+  "enfermedad": "nombre común en español",
+  "nombre_cientifico": "nombre científico",
+  "severidad": "Alta",
+  "confianza": 85,
+  "que_veo": "descripción detallada de lo que observas en la imagen: colores, manchas, tejidos afectados, 2-3 oraciones",
+  "causa": "por qué ocurre esto, explicado simple para un agricultor, 2 oraciones máximo",
+  "sintomas_detectados": "síntomas visuales específicos detectados en esta foto, 2 oraciones",
+  "tratamiento": [
+    "Paso 1 — Producto principal: nombre comercial disponible en Chile, dosis exacta y frecuencia",
+    "Paso 2 — Alternativa: otro producto con dosis",
+    "Paso 3 — Acción cultural: qué hacer además del producto"
+  ],
+  "alerta_propagacion": "¿puede contagiar otras plantas? ¿con qué velocidad? 1 oración clara",
+  "cuando_actuar": "urgencia: hoy/esta semana/puede esperar, y por qué",
+  "donde_comprar": "tipo de tienda o agroveterinaria donde conseguir el producto en Chile"
 }
-Si no hay enfermedad visible: enfermedad:"Sin enfermedad detectada". Severidad exactamente "Alta","Media" o "Baja". Confianza 60-97.`;
+
+Si la imagen no muestra planta enferma o no hay enfermedad: enfermedad "Sin enfermedad detectada", confianza bajo 70.
+Severidad debe ser EXACTAMENTE "Alta", "Media" o "Baja". Confianza entre 55 y 97.`;
 
     const workerRes = await fetch(WORKER_URL, {
       method: 'POST',
@@ -265,9 +303,9 @@ function renderResult(r, crop, region, photoURL) {
         <div class="sev ${sc}">${r.severidad || '—'}</div>
       </div>
       <div class="diag-body">
-        <div class="i-label">Síntomas detectados</div>
-        <div class="i-text">${r.sintomas_detectados || '—'}</div>
-        <div class="i-label">Causa</div>
+        <div class="i-label">Lo que veo en la foto</div>
+        <div class="i-text">${r.que_veo || r.sintomas_detectados || '—'}</div>
+        <div class="i-label">¿Por qué ocurre?</div>
         <div class="i-text" style="margin-bottom:0">${r.causa || '—'}</div>
       </div>
     </div>
@@ -275,16 +313,20 @@ function renderResult(r, crop, region, photoURL) {
       <div class="conf-row"><span class="conf-l">Confianza del diagnóstico</span><span class="conf-v">${r.confianza || 0}%</span></div>
       <div class="conf-track"><div class="conf-fill" id="cbar" style="width:0%"></div></div>
     </div>
+    ${r.cuando_actuar ? `<div class="info-row ir-warn" style="margin-bottom:14px">
+      <div class="ir-icon">🕐</div>
+      <div class="ir-text"><strong>¿Cuándo actuar?</strong> ${r.cuando_actuar}</div>
+    </div>` : ''}
     <div class="treat-wrap">
-      <div class="treat-title">💊 Tratamiento recomendado</div>
+      <div class="treat-title">💊 Qué hacer — paso a paso</div>
       ${treats}
     </div>
     ${r.donde_comprar ? `<div class="info-row ir-green"><div class="ir-icon">🏪</div><div class="ir-text"><strong>¿Dónde comprar?</strong> ${r.donde_comprar}</div></div>` : ''}
     <div class="info-row ir-warn">
       <div class="ir-icon">⚠️</div>
-      <div class="ir-text"><strong>Propagación:</strong> ${r.alerta_propagacion || '—'}</div>
+      <div class="ir-text"><strong>¿Se contagia?</strong> ${r.alerta_propagacion || '—'}</div>
     </div>
-    <div class="footer-note">${crop} · ${region} · Basado en guías SAG / INIA</div>
+    <div class="footer-note">Basado en guías SAG / INIA · ${crop} · ${region}</div>
   `;
   setTimeout(() => {
     const b = document.getElementById('cbar');
