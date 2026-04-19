@@ -42,6 +42,8 @@ getRedirectResult(auth).then(result => {
 let imgBase64   = null;
 let imgMime     = 'image/jpeg';
 let imgBlob     = null;
+let weatherData = null;
+let userCoords  = null;
 
 /* ══ AUTH ══ */
 onAuthStateChanged(auth, async user => {
@@ -121,14 +123,124 @@ window.clearImage = () => {
   document.getElementById('file-input').value = '';
 };
 
+/* ══ CLIMA Y UBICACIÓN ══ */
+async function getLocationAndWeather() {
+  return new Promise((resolve) => {
+    if (!navigator.geolocation) { resolve(null); return; }
+    navigator.geolocation.getCurrentPosition(async (pos) => {
+      const { latitude: lat, longitude: lon } = pos.coords;
+      userCoords = { lat, lon };
+      try {
+        // Open-Meteo — gratis, sin API key
+        const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,precipitation,wind_speed_10m,weather_code&daily=precipitation_sum&timezone=auto&forecast_days=3`;
+        const res  = await fetch(url);
+        const data = await res.json();
+        const c    = data.current;
+
+        // Geocoding inverso para nombre de ciudad
+        const geoRes  = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json`);
+        const geoData = await geoRes.json();
+        const ciudad  = geoData.address?.city || geoData.address?.town || geoData.address?.village || 'Chile';
+        const region  = geoData.address?.state || 'Chile';
+
+        weatherData = {
+          temperatura:  Math.round(c.temperature_2m),
+          humedad:      Math.round(c.relative_humidity_2m),
+          precipitacion: Math.round(c.precipitation * 10) / 10,
+          viento:       Math.round(c.wind_speed_10m),
+          ciudad, region,
+          lluvia_3dias: data.daily?.precipitation_sum?.slice(0,3).reduce((a,b) => a + (b||0), 0).toFixed(1)
+        };
+
+        // Actualizar selector de región automáticamente
+        updateRegionFromGeo(region);
+        updateWeatherWidget();
+        resolve(weatherData);
+      } catch(e) {
+        console.warn('Weather error:', e);
+        resolve(null);
+      }
+    }, () => resolve(null), { timeout: 6000 });
+  });
+}
+
+function updateRegionFromGeo(regionName) {
+  const select = document.getElementById('region');
+  const options = Array.from(select.options);
+  const match = options.find(o => regionName.toLowerCase().includes(o.value.toLowerCase().replace('región del ','').replace('región de ','').replace('región ','')));
+  if (match) select.value = match.value;
+}
+
+function updateWeatherWidget() {
+  const w = weatherData;
+  if (!w) return;
+  const widget = document.getElementById('weather-widget');
+  if (!widget) return;
+
+  const humedadColor = w.humedad > 80 ? '#b85c1a' : w.humedad > 60 ? '#3d7a52' : '#6b6b6b';
+  const riesgo = w.humedad > 80 && w.temperatura > 15 ? '⚠️ Condiciones favorables para hongos' :
+                 w.humedad > 70 ? '🌿 Humedad moderada — monitorear' :
+                 '✓ Condiciones normales';
+
+  widget.innerHTML = `
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+      <div style="font-family:var(--serif);font-size:14px;font-weight:600;color:var(--text);">
+        📍 ${w.ciudad}
+      </div>
+      <div style="font-size:12px;color:var(--muted);">Clima actual</div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px;margin-bottom:10px;">
+      <div style="text-align:center;">
+        <div style="font-size:20px;font-weight:700;color:var(--dark);">${w.temperatura}°</div>
+        <div style="font-size:11px;color:var(--muted);">Temp.</div>
+      </div>
+      <div style="text-align:center;">
+        <div style="font-size:20px;font-weight:700;color:${humedadColor};">${w.humedad}%</div>
+        <div style="font-size:11px;color:var(--muted);">Humedad</div>
+      </div>
+      <div style="text-align:center;">
+        <div style="font-size:20px;font-weight:700;color:var(--dark);">${w.precipitacion}</div>
+        <div style="font-size:11px;color:var(--muted);">mm hoy</div>
+      </div>
+      <div style="text-align:center;">
+        <div style="font-size:20px;font-weight:700;color:var(--dark);">${w.lluvia_3dias}</div>
+        <div style="font-size:11px;color:var(--muted);">mm 3 días</div>
+      </div>
+    </div>
+    <div style="background:${w.humedad > 80 ? 'var(--warn-bg)' : 'var(--light)'};border-radius:8px;padding:8px 12px;font-size:12px;color:var(--text);">
+      ${riesgo}
+    </div>
+  `;
+  widget.style.display = 'block';
+}
+
+window.requestLocation = async () => {
+  const btn = document.getElementById('location-btn');
+  btn.textContent = 'Obteniendo ubicación...';
+  btn.disabled = true;
+  await getLocationAndWeather();
+  btn.textContent = weatherData ? '📍 ' + weatherData.ciudad : '📍 Ubicación no disponible';
+  btn.disabled = false;
+};
+
 /* ══ ANÁLISIS ══ */
 window.startAnalysis = async () => {
   if (!imgBase64) { alert('Primero fotografía o selecciona una planta.'); return; }
   if (!currentUser) { alert('Debes iniciar sesión.'); return; }
 
   const crop     = document.getElementById('crop-type').value || 'cultivo no especificado';
-  const region   = document.getElementById('region').value    || 'Chile';
+  const region   = document.getElementById('region').value    || weatherData?.region || 'Chile';
   const symptoms = document.getElementById('symptoms-text').value;
+
+  // Contexto climático para el prompt
+  const climaCtx = weatherData ? `
+CONDICIONES CLIMÁTICAS ACTUALES EN ${weatherData.ciudad}:
+- Temperatura: ${weatherData.temperatura}°C
+- Humedad relativa: ${weatherData.humedad}%
+- Precipitación hoy: ${weatherData.precipitacion}mm
+- Lluvia últimos 3 días: ${weatherData.lluvia_3dias}mm
+- Viento: ${weatherData.viento} km/h
+Considera estas condiciones para evaluar riesgo de propagación y urgencia del tratamiento.` : '';
 
   goTo('s-loading');
   animSteps();
@@ -212,6 +324,7 @@ Severidad debe ser EXACTAMENTE "Alta", "Media" o "Baja". Confianza entre 55 y 97
     await addDoc(collection(db, 'diagnosticos'), {
       userId: currentUser.uid, userName: currentUser.displayName,
       crop, region, symptoms, photoURL, storagePath: photoPath,
+      clima: weatherData || null,
       enfermedad: r.enfermedad, nombre_cientifico: r.nombre_cientifico,
       severidad: r.severidad, confianza: r.confianza,
       causa: r.causa, sintomas_detectados: r.sintomas_detectados,
@@ -326,6 +439,13 @@ function renderResult(r, crop, region, photoURL) {
       <div class="ir-icon">⚠️</div>
       <div class="ir-text"><strong>¿Se contagia?</strong> ${r.alerta_propagacion || '—'}</div>
     </div>
+    ${weatherData ? `<div class="info-row ir-green" style="margin-bottom:14px">
+      <div class="ir-icon">🌡️</div>
+      <div class="ir-text" style="font-size:13px;">
+        <strong>Clima al momento del diagnóstico</strong><br>
+        ${weatherData.ciudad} · ${weatherData.temperatura}°C · ${weatherData.humedad}% humedad · ${weatherData.precipitacion}mm precipitación
+      </div>
+    </div>` : ''}
     <div class="footer-note">Basado en guías SAG / INIA · ${crop} · ${region}</div>
   `;
   setTimeout(() => {
@@ -546,6 +666,12 @@ body{font-family:var(--sans);background:#ddd8cf;min-height:100vh;display:flex;ju
     <div><div class="topbar-title">Nueva consulta</div><div class="topbar-sub">Analiza tu cultivo</div></div>
   </div>
   <div class="cam-body">
+    <!-- Widget clima -->
+    <div id="weather-widget" style="display:none;background:white;border-radius:16px;border:1px solid var(--border);padding:14px 16px;margin-bottom:16px;"></div>
+    <button id="location-btn" onclick="requestLocation()" style="width:100%;background:white;border:1.5px solid var(--border);border-radius:12px;padding:12px;font-size:14px;font-weight:500;color:var(--muted);font-family:var(--sans);cursor:pointer;margin-bottom:16px;display:flex;align-items:center;justify-content:center;gap:8px;">
+      📍 Obtener mi ubicación y clima
+    </button>
+
     <div class="upload-zone" id="upload-zone">
       <input type="file" accept="image/*" capture="environment" id="file-input" onchange="handleImage(event)"/>
       <div class="upload-icon">📸</div>
