@@ -303,47 +303,116 @@ async function registrarAlertaZona(enfermedad, cultivo, region, coords) {
 }
 
 /* ══ CALCULADORA DOSIS ══ */
-window.calcularDosis = () => {
-  const pasos   = window._tratamientoPasos || [];
-  const equipo  = document.getElementById('calc-equipo')?.value;
-  const surface = parseFloat(document.getElementById('calc-superficie')?.value || 0);
-  if (!equipo || !surface || surface <= 0) {
-    alert('Ingresa superficie y equipo de aplicación.');
-    return;
-  }
+let calcTab = 'arbol';
 
-  // Litros por hectárea según equipo
-  const litrosHa = { espalda: 400, mochila_motor: 600, tractor: 800, dron: 15 };
-  const lts      = (litrosHa[equipo] || 400) * surface;
-  const resultado = pasos.map((p, i) => {
-    // Extraer dosis del texto (buscar patrones como "2 kg/100L" o "1.5 L/100L")
-    const matchKg  = p.match(/(\d+\.?\d*)\s*kg\/100[Ll]/);
-    const matchL   = p.match(/(\d+\.?\d*)\s*[Ll]\/100[Ll]/);
+window.setCalcTab = (tab) => {
+  calcTab = tab;
+  ['arbol','huerto','predio'].forEach(t => {
+    document.getElementById('panel-' + t).style.display = t === tab ? 'block' : 'none';
+    const btn = document.getElementById('tab-' + t);
+    if (t === tab) {
+      btn.style.background = 'var(--dark)'; btn.style.color = 'white';
+      btn.style.borderColor = 'var(--dark)';
+    } else {
+      btn.style.background = 'white'; btn.style.color = 'var(--muted)';
+      btn.style.borderColor = 'var(--border)';
+    }
+  });
+  document.getElementById('calc-resultado').innerHTML = '';
+};
+
+window.actualizarM2 = () => {
+  const l = parseFloat(document.getElementById('calc-largo')?.value || 0);
+  const a = parseFloat(document.getElementById('calc-ancho')?.value || 0);
+  const prev = document.getElementById('calc-m2-preview');
+  if (l > 0 && a > 0 && prev) {
+    prev.style.display = 'block';
+    prev.textContent = `📐 Tu huerto tiene ${(l * a).toFixed(1)} m² (${l}m × ${a}m)`;
+  } else if (prev) {
+    prev.style.display = 'none';
+  }
+};
+
+function calcProductos(litrosTotales, etiquetaEquipo) {
+  const pasos = window._tratamientoPasos || [];
+  return pasos.map((p, i) => {
+    const matchKg  = p.match(/(\d+[\.,]?\d*)\s*kg\/100[Ll]/);
+    const matchL   = p.match(/(\d+[\.,]?\d*)\s*[Ll]\/100[Ll]/);
     const dosis100 = matchKg ? parseFloat(matchKg[1]) : matchL ? parseFloat(matchL[1]) : null;
     const unidad   = matchKg ? 'kg' : matchL ? 'L' : null;
-    const nombre   = p.split('—')[1]?.split(':')[0]?.trim() || `Producto paso ${i+1}`;
+    const nombre   = p.split('—')[1]?.split(':')[0]?.trim() ||
+                     p.split(':')[0]?.replace(/^Paso \d+\s*[-—]?\s*/,'')?.trim() ||
+                     `Producto ${i+1}`;
 
     if (dosis100 && unidad) {
-      const total = ((dosis100 * lts) / 100).toFixed(2);
-      return `<div style="padding:10px 0;border-bottom:1px solid var(--border);">
+      const total = (dosis100 * litrosTotales / 100);
+      // Convertir a medidas caseras si el volumen es pequeño
+      let medidaCasera = '';
+      if (unidad === 'L' && total < 0.1) {
+        medidaCasera = ` ≈ ${Math.round(total * 1000)} ml`;
+      } else if (unidad === 'kg' && total < 0.1) {
+        medidaCasera = ` ≈ ${Math.round(total * 1000)} g`;
+      } else if (unidad === 'kg' && total < 0.01) {
+        medidaCasera = ` ≈ ${Math.round(total * 1000 * 5)} cucharaditas (1 cuch. ≈ 5g)`;
+      }
+
+      return `<div style="padding:11px 0;border-bottom:1px solid var(--border);">
         <div style="font-size:13px;font-weight:600;color:var(--text);">${nombre}</div>
-        <div style="font-size:14px;color:var(--dark);margin-top:4px;">
-          <strong>${total} ${unidad}</strong> en <strong>${Math.round(lts)} L de agua</strong>
+        <div style="font-size:17px;font-weight:700;color:var(--dark);margin:5px 0;">
+          ${total < 0.01 ? '< 0.01' : total.toFixed(total < 0.1 ? 3 : 2)} ${unidad}${medidaCasera}
         </div>
-        <div style="font-size:12px;color:var(--muted);margin-top:2px;">(${dosis100} ${unidad}/100L × ${Math.round(lts)}L)</div>
+        <div style="font-size:12px;color:var(--muted);">en ${Math.round(litrosTotales)} litros de agua · (${dosis100} ${unidad} por cada 100L)</div>
       </div>`;
     }
-    return `<div style="padding:10px 0;border-bottom:1px solid var(--border);">
+    return `<div style="padding:11px 0;border-bottom:1px solid var(--border);">
       <div style="font-size:13px;font-weight:600;color:var(--text);">${nombre}</div>
-      <div style="font-size:12px;color:var(--muted);margin-top:3px;">Ver etiqueta del producto para dosis exacta</div>
+      <div style="font-size:12px;color:var(--muted);margin-top:4px;">Consultar etiqueta del producto para la dosis exacta</div>
     </div>`;
   }).join('');
+}
 
+window.calcularDosis = () => {
+  const litrosHa = { espalda: 400, mochila_motor: 600, tractor: 800, dron: 15 };
+  let litros = 0, descripcion = '';
+
+  if (calcTab === 'arbol') {
+    const ltsArbol = parseFloat(document.getElementById('calc-arbol-size')?.value || 15);
+    const cant     = parseInt(document.getElementById('calc-arbol-cant')?.value || 1);
+    if (cant < 1) { alert('Ingresa al menos 1 árbol.'); return; }
+    litros      = ltsArbol * cant;
+    const label  = document.getElementById('calc-arbol-size');
+    const tamano = label?.options[label.selectedIndex]?.text?.split('—')[0]?.trim() || '';
+    descripcion = `${cant} árbol${cant > 1 ? 'es' : ''} ${tamano.toLowerCase()} · ${litros} L totales`;
+
+  } else if (calcTab === 'huerto') {
+    const largo = parseFloat(document.getElementById('calc-largo')?.value || 0);
+    const ancho = parseFloat(document.getElementById('calc-ancho')?.value || 0);
+    const equipo = document.getElementById('calc-equipo-huerto')?.value;
+    if (!largo || !ancho) { alert('Ingresa largo y ancho de tu huerto.'); return; }
+    const m2 = largo * ancho;
+    const ha = m2 / 10000;
+    // Pulverizador manual: ~50 L/ha equivalente para huertos pequeños
+    const ltsHa = equipo === 'pulverizador_manual' ? 50 :
+                  equipo === 'mochila_manual'       ? 150 : 400;
+    litros = Math.max(0.5, ltsHa * ha);
+    descripcion = `Huerto de ${m2.toFixed(0)} m² (${largo}×${ancho}m) · ${litros.toFixed(1)} L totales`;
+
+  } else {
+    const ha     = parseFloat(document.getElementById('calc-ha')?.value || 0);
+    const equipo = document.getElementById('calc-equipo-predio')?.value;
+    if (!ha || ha <= 0) { alert('Ingresa la superficie en hectáreas.'); return; }
+    litros      = (litrosHa[equipo] || 400) * ha;
+    descripcion = `${ha} ha con ${equipo.replace('_',' ')} · ${Math.round(litros)} L totales`;
+  }
+
+  const productos = calcProductos(litros, '');
   document.getElementById('calc-resultado').innerHTML = `
     <div style="margin-top:14px;background:var(--light);border-radius:12px;padding:14px;border:1px solid rgba(30,61,43,.2);">
-      <div style="font-size:13px;font-weight:600;color:var(--dark);margin-bottom:2px;">Para ${surface} ha con ${equipo.replace('_',' ')}:</div>
-      <div style="font-size:12px;color:var(--muted);margin-bottom:10px;">Volumen total: ${Math.round(lts)} litros de caldo</div>
-      ${resultado}
+      <div style="font-size:13px;font-weight:600;color:var(--dark);margin-bottom:10px;">${descripcion}</div>
+      ${productos}
+      <div style="font-size:11px;color:var(--muted);margin-top:10px;line-height:1.5;">
+        ⚠️ Siempre verifica la dosis en la etiqueta del producto. No mezclar productos sin consultar.
+      </div>
     </div>`;
 };
 
@@ -548,7 +617,10 @@ function renderHistory(items) {
         <div class="hi-name"><span class="dot ${dc}"></span>${h.enfermedad || '—'}</div>
         <div class="hi-date">${fecha}</div>
       </div>
-      <div class="hi-sub">${h.crop} · ${h.region}</div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-top:2px;">
+        <div class="hi-sub">${h.crop} · ${h.region}</div>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+      </div>
     </div>`;
   }).join('');
 }
@@ -594,11 +666,11 @@ function renderResult(r, crop, region, photoURL) {
           <div class="disease-name">${r.enfermedad || 'Sin diagnóstico'}</div>
           <div class="disease-sci">${r.nombre_cientifico || ''}</div>
           <div style="display:flex;align-items:center;gap:6px;margin-top:8px;">
-            <div style="background:#1E3D2B;color:white;border-radius:6px;padding:3px 9px;font-size:11px;font-weight:600;display:flex;align-items:center;gap:4px;">
-              ✓ SAG Chile 2025
+            <div style="background:#1E3D2B;color:white;border-radius:6px;padding:4px 10px;font-size:11px;font-weight:600;letter-spacing:.3px;">
+              SAG Chile 2025
             </div>
-            <div style="background:#e8f0eb;color:#1E3D2B;border-radius:6px;padding:3px 9px;font-size:11px;font-weight:600;">
-              Productos con registro vigente
+            <div style="background:#e8f0eb;color:#1E3D2B;border-radius:6px;padding:4px 10px;font-size:11px;font-weight:500;">
+              Registro vigente
             </div>
           </div>
         </div>
@@ -642,27 +714,98 @@ function renderResult(r, crop, region, photoURL) {
     <!-- CALCULADORA DE DOSIS -->
     <div style="background:white;border-radius:16px;border:1px solid var(--border);padding:17px;margin-bottom:14px;">
       <div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:3px;">⚗️ Calculadora de dosis</div>
-      <div style="font-size:12px;color:var(--muted);margin-bottom:12px;">Calcula cuánto producto necesitas según tu predio y equipo</div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;">
-        <div>
-          <label style="font-size:11px;font-weight:500;color:var(--muted);display:block;margin-bottom:4px;">Superficie (ha)</label>
-          <input type="number" id="calc-superficie" placeholder="Ej: 0.5" step="0.1" min="0.1"
+      <div style="font-size:12px;color:var(--muted);margin-bottom:14px;">¿Cuánto necesitas? Elige tu situación:</div>
+
+      <!-- TABS -->
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:16px;" id="calc-tabs">
+        <button onclick="setCalcTab('arbol')" id="tab-arbol"
+          style="padding:9px 4px;border-radius:10px;border:1.5px solid var(--dark);background:var(--dark);color:white;font-size:12px;font-weight:600;font-family:var(--sans);cursor:pointer;line-height:1.3;">
+          🌳 Un árbol
+        </button>
+        <button onclick="setCalcTab('huerto')" id="tab-huerto"
+          style="padding:9px 4px;border-radius:10px;border:1.5px solid var(--border);background:white;color:var(--muted);font-size:12px;font-weight:600;font-family:var(--sans);cursor:pointer;line-height:1.3;">
+          🪴 Mi huerto
+        </button>
+        <button onclick="setCalcTab('predio')" id="tab-predio"
+          style="padding:9px 4px;border-radius:10px;border:1.5px solid var(--border);background:white;color:var(--muted);font-size:12px;font-weight:600;font-family:var(--sans);cursor:pointer;line-height:1.3;">
+          🌾 Predio / ha
+        </button>
+      </div>
+
+      <!-- TAB: ÁRBOL -->
+      <div id="panel-arbol">
+        <div style="font-size:12px;color:var(--muted);margin-bottom:10px;">Aplicamos directo al árbol con una cantidad fija de agua</div>
+        <div style="margin-bottom:10px;">
+          <label style="font-size:11px;font-weight:500;color:var(--muted);display:block;margin-bottom:4px;">Tamaño del árbol</label>
+          <select id="calc-arbol-size"
+            style="width:100%;padding:10px;border-radius:10px;border:1.5px solid var(--border);font-size:14px;font-family:var(--sans);background:var(--bg);outline:none;-webkit-appearance:none;">
+            <option value="5">Pequeño — hasta 1.5m altura (ej: arbusto, frutilla) → 5 L</option>
+            <option value="15">Mediano — 1.5 a 3m (ej: duraznero joven, cerezo) → 15 L</option>
+            <option value="30">Grande — 3 a 5m (ej: manzano adulto, palto) → 30 L</option>
+            <option value="60">Muy grande — más de 5m (ej: nogal, naranjo viejo) → 60 L</option>
+          </select>
+        </div>
+        <div style="margin-bottom:10px;">
+          <label style="font-size:11px;font-weight:500;color:var(--muted);display:block;margin-bottom:4px;">¿Cuántos árboles?</label>
+          <input type="number" id="calc-arbol-cant" value="1" min="1" step="1"
             style="width:100%;padding:10px;border-radius:10px;border:1.5px solid var(--border);font-size:14px;font-family:var(--sans);background:var(--bg);outline:none;"/>
         </div>
-        <div>
-          <label style="font-size:11px;font-weight:500;color:var(--muted);display:block;margin-bottom:4px;">Equipo de aplicación</label>
-          <select id="calc-equipo"
+      </div>
+
+      <!-- TAB: HUERTO -->
+      <div id="panel-huerto" style="display:none;">
+        <div style="font-size:12px;color:var(--muted);margin-bottom:10px;">Ingresa las medidas de tu huerto — calculamos la superficie automáticamente</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;">
+          <div>
+            <label style="font-size:11px;font-weight:500;color:var(--muted);display:block;margin-bottom:4px;">Largo (metros)</label>
+            <input type="number" id="calc-largo" placeholder="Ej: 10" step="0.5" min="0.5"
+              style="width:100%;padding:10px;border-radius:10px;border:1.5px solid var(--border);font-size:14px;font-family:var(--sans);background:var(--bg);outline:none;"
+              oninput="actualizarM2()"/>
+          </div>
+          <div>
+            <label style="font-size:11px;font-weight:500;color:var(--muted);display:block;margin-bottom:4px;">Ancho (metros)</label>
+            <input type="number" id="calc-ancho" placeholder="Ej: 5" step="0.5" min="0.5"
+              style="width:100%;padding:10px;border-radius:10px;border:1.5px solid var(--border);font-size:14px;font-family:var(--sans);background:var(--bg);outline:none;"
+              oninput="actualizarM2()"/>
+          </div>
+        </div>
+        <div id="calc-m2-preview" style="display:none;background:var(--light);border-radius:8px;padding:8px 12px;font-size:13px;color:var(--dark);font-weight:500;margin-bottom:10px;"></div>
+        <div style="margin-bottom:10px;">
+          <label style="font-size:11px;font-weight:500;color:var(--muted);display:block;margin-bottom:4px;">Equipo que usas</label>
+          <select id="calc-equipo-huerto"
             style="width:100%;padding:10px;border-radius:10px;border:1.5px solid var(--border);font-size:14px;font-family:var(--sans);background:var(--bg);outline:none;-webkit-appearance:none;">
-            <option value="espalda">Bomba de espalda (400 L/ha)</option>
-            <option value="mochila_motor">Mochila motor (600 L/ha)</option>
-            <option value="tractor">Tractor (800 L/ha)</option>
-            <option value="dron">Dron agrícola (15 L/ha)</option>
+            <option value="pulverizador_manual">Pulverizador manual de mano (1–2 L)</option>
+            <option value="mochila_manual">Mochila manual (8–20 L)</option>
+            <option value="espalda">Bomba de espalda a presión (400 L/ha)</option>
           </select>
         </div>
       </div>
+
+      <!-- TAB: PREDIO -->
+      <div id="panel-predio" style="display:none;">
+        <div style="font-size:12px;color:var(--muted);margin-bottom:10px;">Para producción agrícola con equipos de mayor volumen</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;">
+          <div>
+            <label style="font-size:11px;font-weight:500;color:var(--muted);display:block;margin-bottom:4px;">Superficie (ha)</label>
+            <input type="number" id="calc-ha" placeholder="Ej: 2.5" step="0.1" min="0.1"
+              style="width:100%;padding:10px;border-radius:10px;border:1.5px solid var(--border);font-size:14px;font-family:var(--sans);background:var(--bg);outline:none;"/>
+          </div>
+          <div>
+            <label style="font-size:11px;font-weight:500;color:var(--muted);display:block;margin-bottom:4px;">Equipo</label>
+            <select id="calc-equipo-predio"
+              style="width:100%;padding:10px;border-radius:10px;border:1.5px solid var(--border);font-size:14px;font-family:var(--sans);background:var(--bg);outline:none;-webkit-appearance:none;">
+              <option value="espalda">Bomba de espalda (400 L/ha)</option>
+              <option value="mochila_motor">Mochila motor (600 L/ha)</option>
+              <option value="tractor">Tractor (800 L/ha)</option>
+              <option value="dron">Dron agrícola (15 L/ha)</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
       <button onclick="calcularDosis()"
-        style="width:100%;background:var(--dark);color:white;border:none;border-radius:11px;padding:12px;font-size:14px;font-weight:600;font-family:var(--sans);cursor:pointer;">
-        Calcular dosis exacta
+        style="width:100%;background:var(--dark);color:white;border:none;border-radius:11px;padding:13px;font-size:14px;font-weight:600;font-family:var(--sans);cursor:pointer;margin-top:4px;">
+        Calcular dosis
       </button>
       <div id="calc-resultado"></div>
     </div>
@@ -699,7 +842,7 @@ function renderResult(r, crop, region, photoURL) {
 
     <!-- LOCALES CERCANOS -->
     <button onclick="window.open('${mapsQueryGeo}', '_blank')" style="width:100%;background:var(--dark);color:white;border:none;border-radius:14px;padding:15px 20px;font-size:15px;font-weight:600;font-family:var(--sans);cursor:pointer;display:flex;align-items:center;justify-content:center;gap:10px;margin-bottom:14px;">
-      📍 Ver agroveterinarias cercanas
+      📍 Agroveterinarias cercanas
     </button>
 
     <div class="info-row ir-warn">
@@ -769,21 +912,31 @@ function resetSteps() {
 <style>
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
 :root{
+  --dark:#1E3D2B;--dark2:#2a5039;--mid:#3d7a52;--light:#e8f0eb;
+  --warn:#b85c1a;--warn-bg:#fdf0e6;
+  --bg:#f4f1ec;--card:#fff;--text:#1a1a1a;--muted:#6b6b6b;--border:rgba(0,0,0,0.09);
+  --serif:'Lora',Georgia,serif;--sans:'Inter',system-ui,sans-serif;
+  --shadow-sm:0 1px 3px rgba(0,0,0,.08),0 1px 2px rgba(0,0,0,.06);
+  --shadow-md:0 4px 16px rgba(0,0,0,.12),0 2px 6px rgba(0,0,0,.08);
+  --shadow-lg:0 12px 40px rgba(0,0,0,.18),0 4px 12px rgba(0,0,0,.10);
+  --r-card:18px;--r-btn:14px;--r-input:11px;
+}
+:root{
   --dark:#1E3D2B;--mid:#3d7a52;--light:#e8f0eb;
   --warn:#b85c1a;--warn-bg:#fdf0e6;
   --bg:#f4f1ec;--card:#fff;--text:#1a1a1a;--muted:#6b6b6b;--border:rgba(0,0,0,0.09);
   --serif:'Lora',Georgia,serif;--sans:'Inter',system-ui,sans-serif;
 }
-body{font-family:var(--sans);background:#ddd8cf;min-height:100vh;display:flex;justify-content:center;}
+body{font-family:var(--sans);background:#c8c3ba;min-height:100vh;display:flex;justify-content:center;}
 #app{width:100%;max-width:430px;background:var(--bg);min-height:100vh;display:flex;flex-direction:column;}
 .screen{display:none;flex-direction:column;min-height:100vh;}
 .screen.active{display:flex;}
 
 /* LOGIN */
-.login-wrap{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px 28px;background:var(--dark);}
+.login-wrap{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px 28px;background:var(--dark);background-image:repeating-linear-gradient(0deg,transparent,transparent 48px,rgba(255,255,255,.015) 48px,rgba(255,255,255,.015) 50px),repeating-linear-gradient(90deg,transparent,transparent 48px,rgba(255,255,255,.015) 48px,rgba(255,255,255,.015) 50px);}
 .login-wordmark{font-family:var(--serif);font-size:34px;font-weight:700;color:white;margin-top:12px;}
 .login-tagline{font-size:13px;color:rgba(255,255,255,.6);font-style:italic;margin-bottom:48px;text-align:center;margin-top:4px;}
-.login-card{background:white;border-radius:20px;padding:28px 24px;width:100%;max-width:320px;}
+.login-card{background:white;border-radius:20px;padding:28px 24px;width:100%;max-width:320px;box-shadow:var(--shadow-lg);}
 .login-card-title{font-family:var(--serif);font-size:18px;font-weight:600;color:var(--text);margin-bottom:6px;}
 .login-card-sub{font-size:14px;color:var(--muted);margin-bottom:24px;line-height:1.6;}
 .google-btn{width:100%;background:white;border:1.5px solid rgba(0,0,0,.15);border-radius:12px;padding:14px;display:flex;align-items:center;justify-content:center;gap:10px;font-size:15px;font-weight:500;font-family:var(--sans);cursor:pointer;color:var(--text);}
@@ -802,26 +955,26 @@ body{font-family:var(--sans);background:#ddd8cf;min-height:100vh;display:flex;ju
 .user-av{width:32px;height:32px;border-radius:50%;overflow:hidden;background:rgba(255,255,255,.2);flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600;color:white;}
 .user-av img{width:100%;height:100%;object-fit:cover;}
 .home-greeting{font-size:13px;color:rgba(255,255,255,.8);}
-.home-title{font-family:var(--serif);font-size:21px;font-weight:600;color:white;line-height:1.3;}
+.home-title{font-family:var(--serif);font-size:24px;font-weight:600;color:white;line-height:1.3;}
 .home-body{padding:20px;flex:1;overflow-y:auto;padding-bottom:32px;}
-.plan-card{background:var(--card);border-radius:16px;border:1px solid var(--border);padding:16px;margin-bottom:20px;display:flex;align-items:center;justify-content:space-between;}
+.plan-card{background:var(--card);border-radius:var(--r-card);border:1px solid var(--border);padding:16px;margin-bottom:20px;display:flex;align-items:center;justify-content:space-between;box-shadow:var(--shadow-sm);}
 .plan-label{font-size:12px;color:var(--muted);margin-bottom:3px;}
 .plan-name{font-family:var(--serif);font-size:15px;font-weight:600;color:var(--text);}
 .diag-num{font-family:var(--serif);font-size:30px;font-weight:700;color:var(--dark);line-height:1;text-align:right;}
 .diag-sub{font-size:11px;color:var(--muted);text-align:right;}
-.btn{width:100%;border:none;border-radius:14px;padding:16px 20px;font-size:15px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:10px;font-family:var(--sans);margin-bottom:12px;transition:opacity .15s,transform .1s;}
+.btn{width:100%;border:none;border-radius:var(--r-btn);padding:16px 20px;font-size:15px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:10px;font-family:var(--sans);margin-bottom:12px;transition:opacity .15s,transform .1s;}
 .btn:active{opacity:.88;transform:scale(.99);}
 .btn-primary{background:var(--dark);color:white;}
 .sec-label{font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;margin-bottom:12px;margin-top:6px;}
 .hist-empty{background:var(--card);border-radius:14px;border:1.5px dashed var(--border);padding:30px;text-align:center;color:var(--muted);font-size:14px;line-height:1.7;}
-.hist-item{background:var(--card);border-radius:13px;border:1px solid var(--border);padding:13px 15px;margin-bottom:9px;cursor:pointer;}
+.hist-item{background:var(--card);border-radius:14px;border:1px solid var(--border);padding:14px 16px;margin-bottom:9px;cursor:pointer;box-shadow:var(--shadow-sm);}
 .hist-item:active{background:var(--light);}
 .hi-row{display:flex;align-items:center;justify-content:space-between;}
-.hi-name{font-size:14px;font-weight:600;color:var(--text);display:flex;align-items:center;gap:7px;}
+.hi-name{font-size:15px;font-weight:600;color:var(--text);display:flex;align-items:center;gap:8px;}
 .hi-date{font-size:12px;color:var(--muted);}
 .hi-sub{font-size:13px;color:var(--muted);margin-top:3px;}
-.dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
-.d-alta{background:#d63b3b;}.d-media{background:var(--warn);}.d-baja{background:var(--mid);}
+.dot{width:9px;height:9px;border-radius:50%;flex-shrink:0;box-shadow:0 0 0 3px rgba(0,0,0,.08);}
+.d-alta{background:#d63b3b;box-shadow:0 0 0 3px rgba(214,59,59,.2);}.d-media{background:var(--warn);box-shadow:0 0 0 3px rgba(184,92,26,.2);}.d-baja{background:var(--mid);box-shadow:0 0 0 3px rgba(61,122,82,.2);}
 
 /* TOPBAR */
 .topbar{background:var(--dark);padding:48px 18px 16px;display:flex;align-items:center;gap:13px;}
@@ -831,7 +984,7 @@ body{font-family:var(--sans);background:#ddd8cf;min-height:100vh;display:flex;ju
 
 /* CAMERA */
 .cam-body{padding:20px;flex:1;overflow-y:auto;padding-bottom:32px;}
-.upload-zone{background:white;border:2px dashed rgba(30,61,43,.35);border-radius:18px;padding:38px 20px;text-align:center;cursor:pointer;margin-bottom:16px;position:relative;overflow:hidden;}
+.upload-zone{background:white;border:2px dashed rgba(30,61,43,.35);border-radius:var(--r-card);padding:38px 20px;text-align:center;cursor:pointer;margin-bottom:16px;position:relative;overflow:hidden;}
 .upload-zone input{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;}
 .upload-icon{font-size:48px;margin-bottom:12px;}
 .upload-text{font-size:16px;font-weight:600;color:var(--dark);margin-bottom:4px;}
@@ -845,13 +998,13 @@ body{font-family:var(--sans);background:#ddd8cf;min-height:100vh;display:flex;ju
 .ctx-title{font-family:var(--serif);font-size:15px;font-weight:600;color:var(--text);margin-bottom:15px;}
 .form-row{margin-bottom:13px;}.form-row:last-child{margin-bottom:0;}
 .form-label{font-size:12px;font-weight:500;color:var(--muted);margin-bottom:5px;display:block;}
-.form-el{width:100%;padding:12px 13px;border-radius:11px;border:1.5px solid var(--border);font-size:15px;font-family:var(--sans);background:var(--bg);color:var(--text);outline:none;-webkit-appearance:none;appearance:none;}
+.form-el{width:100%;padding:12px 13px;border-radius:var(--r-input);border:1.5px solid var(--border);font-size:15px;font-family:var(--sans);background:var(--bg);color:var(--text);outline:none;-webkit-appearance:none;appearance:none;transition:border-color .15s;}.form-el:focus{border-color:var(--dark);box-shadow:0 0 0 3px rgba(30,61,43,.1);}
 .form-el:focus{border-color:var(--dark);}
 
 /* LOADING */
 .loading-wrap{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px 24px;}
 @keyframes breathe{0%,100%{transform:scale(1);}50%{transform:scale(1.07);}}
-.loading-ring{width:80px;height:80px;border-radius:50%;background:var(--light);display:flex;align-items:center;justify-content:center;margin-bottom:22px;animation:breathe 2s ease-in-out infinite;}
+.loading-ring{width:88px;height:88px;border-radius:50%;background:rgba(255,255,255,.15);display:flex;align-items:center;justify-content:center;margin-bottom:22px;animation:breathe 2s ease-in-out infinite;}
 .loading-title{font-family:var(--serif);font-size:18px;font-weight:600;color:var(--text);margin-bottom:7px;}
 .loading-sub{font-size:14px;color:var(--muted);text-align:center;line-height:1.6;}
 .steps{margin-top:28px;width:100%;max-width:290px;}
@@ -863,7 +1016,7 @@ body{font-family:var(--sans);background:#ddd8cf;min-height:100vh;display:flex;ju
 
 /* RESULT */
 .result-body{padding:20px;flex:1;overflow-y:auto;padding-bottom:40px;}
-.diag-main{background:white;border-radius:18px;border:1px solid var(--border);overflow:hidden;margin-bottom:14px;}
+.diag-main{background:white;border-radius:var(--r-card);border:1px solid var(--border);overflow:hidden;margin-bottom:14px;box-shadow:var(--shadow-sm);}
 .diag-top{padding:18px;border-bottom:1px solid var(--border);display:flex;align-items:flex-start;justify-content:space-between;gap:10px;}
 .disease-name{font-family:var(--serif);font-size:19px;font-weight:700;color:var(--text);line-height:1.2;}
 .disease-sci{font-size:13px;color:var(--muted);margin-top:4px;font-style:italic;}
@@ -873,12 +1026,12 @@ body{font-family:var(--sans);background:#ddd8cf;min-height:100vh;display:flex;ju
 .i-label{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin-bottom:5px;}
 .i-text{font-size:14px;color:var(--text);line-height:1.65;margin-bottom:16px;}
 .i-text:last-child{margin-bottom:0;}
-.conf-wrap{background:white;border-radius:14px;border:1px solid var(--border);padding:15px 17px;margin-bottom:14px;}
+.conf-wrap{background:white;border-radius:14px;border:1px solid var(--border);padding:15px 17px;margin-bottom:14px;box-shadow:var(--shadow-sm);}
 .conf-row{display:flex;justify-content:space-between;margin-bottom:9px;}
 .conf-l{font-size:13px;color:var(--muted);}.conf-v{font-size:13px;font-weight:600;color:var(--dark);}
 .conf-track{height:7px;background:rgba(0,0,0,.08);border-radius:4px;overflow:hidden;}
 .conf-fill{height:100%;background:var(--mid);border-radius:4px;transition:width 1.1s cubic-bezier(.4,0,.2,1);}
-.treat-wrap{background:var(--light);border-radius:16px;border:1px solid rgba(30,61,43,.18);padding:17px;margin-bottom:14px;}
+.treat-wrap{background:var(--light);border-radius:16px;border:1px solid rgba(30,61,43,.18);padding:17px;margin-bottom:14px;box-shadow:var(--shadow-sm);}
 .treat-title{font-size:13px;font-weight:600;color:var(--dark);margin-bottom:12px;}
 .treat-item{font-size:14px;color:var(--text);line-height:1.65;margin-bottom:9px;padding-left:13px;border-left:3px solid var(--mid);}
 .treat-item:last-child{margin-bottom:0;}
@@ -912,13 +1065,8 @@ body{font-family:var(--sans);background:#ddd8cf;min-height:100vh;display:flex;ju
 <!-- LOGIN -->
 <div class="screen active" id="s-login">
   <div class="login-wrap">
-    <svg width="52" height="42" viewBox="0 0 120 90" fill="none">
-      <path d="M60 75 C35 75 10 55 5 25 C20 40 38 50 60 50 C82 50 100 40 115 25 C110 55 85 75 60 75Z" fill="rgba(255,255,255,0.9)"/>
-      <path d="M60 60 C38 60 18 45 10 18 C25 32 41 40 60 40 C79 40 95 32 110 18 C102 45 82 60 60 60Z" fill="rgba(255,255,255,0.65)"/>
-      <path d="M60 45 C42 45 26 33 18 10 C30 24 44 31 60 31 C76 31 90 24 102 10 C94 33 78 45 60 45Z" fill="rgba(255,255,255,0.4)"/>
-    </svg>
-    <div class="login-wordmark">Surco</div>
-    <div class="login-tagline">Cultiva inteligencia, cosecha resultados</div>
+    <div style="color:rgba(232,240,235,0.95);width:180px;height:60px;"><svg viewBox="0 0 1024 336" xmlns="http://www.w3.org/2000/svg"><path fill="currentColor" d="M327.762207,161.781784 C308.995667,178.492813 294.252716,197.901627 283.044159,219.928619 C280.814880,224.309540 278.431061,225.069260 274.048309,223.865799 C266.966675,221.921188 260.088470,219.469635 253.217529,216.922729 C249.419998,215.515060 248.764175,213.740097 250.999908,210.264587 C274.597076,173.582214 305.725220,145.598969 345.879883,128.088150 C372.666565,116.406906 400.685211,110.742485 429.953461,111.581856 C431.055847,111.613480 432.318054,111.189842 433.844452,113.556427 C393.171906,118.307755 358.145050,134.672592 327.762207,161.781784z"/><path fill="currentColor" d="M508.210449,176.849091 C504.554688,174.478668 501.121429,172.422104 497.895081,170.080429 C487.530792,162.558075 483.605530,152.217789 486.006317,139.855713 C488.315552,127.964867 496.610138,121.307556 507.784546,118.155052 C519.128784,114.954620 530.526245,116.007767 541.848267,118.700073 C543.722839,119.145821 544.801392,120.217285 545.042114,122.047302 C545.822083,127.977409 546.550049,133.914505 547.269531,139.852371 C547.567200,142.309753 546.913147,143.938110 544.059570,144.457718 C541.432068,144.936157 540.448059,143.698151 539.661743,141.608078 C538.255432,137.870087 536.918396,134.072845 534.370911,130.908295 C529.755981,125.175529 523.646973,123.274994 516.551270,124.332787 C511.329987,125.111145 507.703369,128.012451 506.067505,133.121063 C503.976013,139.652435 505.480194,145.255508 510.606750,149.841309 C515.130066,153.887451 520.507751,156.566376 525.878723,159.226624 C530.966431,161.746582 535.880737,164.514801 540.322083,168.085953 C556.960266,181.464325 555.180115,206.052292 536.663696,216.849060 C524.238403,224.094116 511.028015,223.469803 497.428711,220.846664 C489.711426,219.358078 485.257263,216.171173 485.116089,207.785995 C485.046997,203.683609 483.713928,199.609787 483.048798,195.507492 C482.623016,192.881500 481.934967,190.161636 485.743011,189.141663 C489.245392,188.203568 490.097992,190.614456 491.073212,192.937347 C493.347168,198.353897 496.192383,203.415421 500.295135,207.666656 C503.832092,211.331589 507.890533,214.139893 513.124207,214.790085 C520.630310,215.722580 525.936707,213.402023 528.912781,207.883163 C532.180847,201.822830 531.193604,194.112885 526.325867,188.875641 C521.349365,183.521378 514.741028,180.560257 508.210449,176.849091z"/><path fill="currentColor" d="M303.199036,227.722031 C300.769348,227.566772 298.775665,227.462982 296.782532,227.349701 C291.927643,227.073776 291.446533,226.267807 293.757111,221.932800 C301.305298,207.771301 310.216522,194.523956 321.013763,182.640320 C349.249725,151.563400 383.715576,131.535492 425.314514,124.304237 C427.106781,123.992683 428.885223,123.446136 431.049042,124.250633 C431.614838,128.143295 430.637207,131.015396 426.439667,132.633759 C383.075348,149.352798 352.145935,179.683624 330.893219,220.441666 C328.972290,224.125610 326.507172,225.766144 322.530548,226.357773 C316.249451,227.292313 309.936096,227.352615 303.199036,227.722031z"/><path fill="currentColor" d="M589.369202,162.251389 C589.365601,173.882019 589.195557,185.040894 589.413330,196.192200 C589.616028,206.573502 596.806091,211.511734 605.689270,207.763901 C608.610229,206.531540 610.073059,204.673019 610.033875,201.299652 C609.898560,189.646240 609.906677,177.989075 610.049072,166.335648 C610.101257,162.067947 608.833740,159.223129 604.229797,158.625793 C602.015686,158.338516 600.490601,157.376328 600.743530,154.734924 C601.013000,151.919968 603.071594,151.798477 605.096008,151.756485 C612.094543,151.611221 619.050293,150.961731 625.951721,149.862213 C630.215698,149.182922 631.480652,150.855011 631.433167,154.999237 C631.267334,169.482773 631.368530,183.969681 631.412109,198.455170 C631.428833,204.014236 631.065247,209.830521 638.902588,210.711273 C640.469421,210.887329 640.880066,212.335175 640.863892,213.772873 C640.844543,215.498520 639.970215,216.640228 638.281616,216.965179 C629.955627,218.567413 621.616821,220.103668 613.292175,221.712738 C611.058289,222.144516 610.312927,221.017441 610.005798,219.075333 C609.755920,217.496002 610.458801,215.737244 609.128357,214.236649 C606.581543,214.358856 605.159485,216.454773 603.285706,217.689301 C592.255005,224.956863 578.961304,223.507629 572.422424,214.225677 C569.741211,210.419647 568.657776,206.116928 568.650757,201.515778 C568.633728,190.360214 568.604370,179.204483 568.650024,168.049103 C568.668396,163.546951 567.875000,159.735580 562.601746,158.620468 C560.455872,158.166687 559.696533,156.537537 559.975586,154.449844 C560.256775,152.346039 561.833435,151.812119 563.607605,151.793030 C570.779907,151.715851 577.866516,150.734177 584.951355,149.784058 C588.990540,149.242371 590.505676,150.904678 590.012390,154.824356 C589.721985,157.131989 589.580505,159.458389 589.369202,162.251389z"/><path fill="currentColor" d="M778.736206,190.649658 C776.772827,168.259872 789.748779,154.587646 806.259094,149.848206 C831.474182,142.610016 854.396484,161.819107 852.672302,187.940567 C851.564270,204.728348 838.886414,221.059082 818.704163,222.200394 C797.602722,223.393677 782.914185,211.841125 778.736206,190.649658 M809.306580,210.197556 C816.571411,217.559097 824.238892,216.221207 826.937195,206.290634 C830.757202,192.231888 830.420227,177.958099 825.230896,164.151764 C823.435730,159.375519 819.949097,156.002350 814.317322,156.141281 C808.717896,156.279434 805.815918,160.166809 804.580078,164.784164 C800.459045,180.182373 800.530884,195.334030 809.306580,210.197556z"/><path fill="currentColor" d="M680.929810,220.355194 C670.943176,220.350311 661.444641,220.360352 651.946350,220.328979 C649.823303,220.321976 647.363525,220.724152 647.023621,217.545685 C646.710327,214.615417 648.618591,213.976929 650.989197,213.545334 C654.201904,212.960419 655.866394,210.898849 655.863403,207.572540 C655.850891,193.743195 655.833740,179.913864 655.841492,166.084518 C655.843201,163.059067 654.048767,161.571625 651.435547,160.798111 C649.244934,160.149719 647.893250,158.941147 648.320557,156.484039 C648.725586,154.154480 650.580078,153.939240 652.472046,153.700058 C658.760010,152.905106 664.921143,151.500824 671.039307,149.853668 C672.739258,149.395996 674.487000,148.414093 676.550964,149.422577 C678.211548,153.194275 676.632812,157.477020 677.761475,162.080063 C680.210449,159.350449 682.252441,157.020157 684.355103,154.745911 C686.527283,152.396515 688.978882,150.387650 692.064392,149.365677 C696.163757,148.007874 700.038086,148.505615 703.258911,151.487076 C706.377014,154.373459 706.903687,158.121719 705.926575,162.086777 C705.058899,165.607346 702.951721,168.352661 700.178955,170.650040 C696.947937,173.327057 694.056458,172.453644 691.255493,169.959503 C688.783142,167.758026 686.113831,165.907623 682.747070,167.904266 C679.432068,169.870224 677.301025,172.711990 677.314026,176.824493 C677.344482,186.489456 677.389160,196.155136 677.301941,205.819382 C677.261902,210.263168 679.399658,212.546188 683.637024,213.358719 C686.053772,213.822128 689.529846,213.278244 689.142334,217.451294 C688.740234,221.781998 685.218628,219.863968 682.914856,220.340042 C682.435364,220.439117 681.918030,220.354889 680.929810,220.355194z"/><path fill="currentColor" d="M753.023315,148.643845 C758.441406,148.417221 763.126953,149.429260 767.364197,152.010391 C771.899841,154.773285 772.508118,159.370941 769.123291,164.019638 C765.940063,168.391418 763.422668,168.627258 758.757751,165.021713 C755.722168,162.675491 752.620422,160.424484 748.937866,159.169403 C742.768005,157.066574 738.267700,158.685806 734.824768,164.212265 C728.888855,173.740479 730.467834,191.187439 738.015320,199.466110 C745.542908,207.723038 755.492310,209.091660 765.072754,203.250641 C766.896729,202.138596 768.611145,199.680115 771.040527,202.474045 C773.425293,205.216812 771.379578,207.084961 769.790344,208.948227 C755.726013,225.437393 734.608276,226.858200 720.268005,212.316711 C706.023132,197.871948 707.840576,173.698471 724.386475,160.085724 C732.529541,153.386246 741.747070,148.962952 753.023315,148.643845z"/><path fill="currentColor" d="M413.553101,166.498016 C396.068207,192.131882 373.645996,210.799057 344.035065,220.824295 C346.063751,200.195648 401.532593,147.719009 425.354736,144.164337 C422.576050,152.465698 418.076996,159.289719 413.553101,166.498016z"/><path fill="currentColor" d="M213.276550,148.752213 C203.162277,142.521225 193.042923,137.079498 182.092117,133.411713 C177.602371,131.907959 176.438431,128.884232 176.593658,124.767212 C179.204391,123.144760 181.502441,124.451027 183.642807,124.830956 C215.300385,130.450363 243.542664,143.407227 268.132141,164.260864 C271.675812,167.266129 271.852600,169.299622 268.339264,172.508224 C263.835754,176.621124 259.887146,181.341675 255.111710,186.426224 C242.999634,171.643219 229.234085,159.217346 213.276550,148.752213z"/><path fill="currentColor" d="M195.647705,168.282257 C190.809952,160.720764 186.289413,153.399887 183.223770,145.276825 C185.547012,143.770325 187.081573,145.270325 188.583359,145.989731 C210.995926,156.726151 229.958038,171.834137 245.759827,191.009766 C248.225952,194.002426 248.147842,196.196701 246.022766,199.335770 C238.791931,210.016815 238.935394,210.056549 228.555252,202.574432 C215.583511,193.224274 204.907669,181.684616 195.647705,168.282257z"/><path fill="currentColor" d="M202.685669,119.379929 C193.201935,116.541840 183.738785,115.383133 173.322922,113.305901 C195.540085,104.169518 274.726746,126.584061 296.086670,147.668137 C290.879639,151.767334 285.826904,155.931946 280.549438,159.789108 C278.904541,160.991318 277.469330,159.174881 276.244659,158.133362 C254.717712,139.825806 230.255615,127.082733 202.685669,119.379929z"/></svg></div>
+    <div style="color:rgba(232,240,235,0.55);font-size:13px;font-style:italic;margin-bottom:40px;text-align:center;">Cultiva inteligencia, cosecha resultados</div>
     <div class="login-card">
       <div class="login-card-title">Iniciar sesión</div>
       <div class="login-card-sub">Accede para diagnosticar tus cultivos y guardar tu historial.</div>
@@ -937,14 +1085,9 @@ body{font-family:var(--sans);background:#ddd8cf;min-height:100vh;display:flex;ju
 <div class="screen" id="s-home">
   <div class="home-header">
     <div class="home-logo">
-      <svg width="30" height="24" viewBox="0 0 120 90" fill="none">
-        <path d="M60 75 C35 75 10 55 5 25 C20 40 38 50 60 50 C82 50 100 40 115 25 C110 55 85 75 60 75Z" fill="rgba(255,255,255,0.9)"/>
-        <path d="M60 60 C38 60 18 45 10 18 C25 32 41 40 60 40 C79 40 95 32 110 18 C102 45 82 60 60 60Z" fill="rgba(255,255,255,0.65)"/>
-        <path d="M60 45 C42 45 26 33 18 10 C30 24 44 31 60 31 C76 31 90 24 102 10 C94 33 78 45 60 45Z" fill="rgba(255,255,255,0.4)"/>
-      </svg>
+      <div style="color:rgba(232,240,235,0.95);width:80px;height:26px;flex-shrink:0;"><svg viewBox="0 0 1024 336" xmlns="http://www.w3.org/2000/svg"><path fill="currentColor" d="M327.762207,161.781784 C308.995667,178.492813 294.252716,197.901627 283.044159,219.928619 C280.814880,224.309540 278.431061,225.069260 274.048309,223.865799 C266.966675,221.921188 260.088470,219.469635 253.217529,216.922729 C249.419998,215.515060 248.764175,213.740097 250.999908,210.264587 C274.597076,173.582214 305.725220,145.598969 345.879883,128.088150 C372.666565,116.406906 400.685211,110.742485 429.953461,111.581856 C431.055847,111.613480 432.318054,111.189842 433.844452,113.556427 C393.171906,118.307755 358.145050,134.672592 327.762207,161.781784z"/><path fill="currentColor" d="M508.210449,176.849091 C504.554688,174.478668 501.121429,172.422104 497.895081,170.080429 C487.530792,162.558075 483.605530,152.217789 486.006317,139.855713 C488.315552,127.964867 496.610138,121.307556 507.784546,118.155052 C519.128784,114.954620 530.526245,116.007767 541.848267,118.700073 C543.722839,119.145821 544.801392,120.217285 545.042114,122.047302 C545.822083,127.977409 546.550049,133.914505 547.269531,139.852371 C547.567200,142.309753 546.913147,143.938110 544.059570,144.457718 C541.432068,144.936157 540.448059,143.698151 539.661743,141.608078 C538.255432,137.870087 536.918396,134.072845 534.370911,130.908295 C529.755981,125.175529 523.646973,123.274994 516.551270,124.332787 C511.329987,125.111145 507.703369,128.012451 506.067505,133.121063 C503.976013,139.652435 505.480194,145.255508 510.606750,149.841309 C515.130066,153.887451 520.507751,156.566376 525.878723,159.226624 C530.966431,161.746582 535.880737,164.514801 540.322083,168.085953 C556.960266,181.464325 555.180115,206.052292 536.663696,216.849060 C524.238403,224.094116 511.028015,223.469803 497.428711,220.846664 C489.711426,219.358078 485.257263,216.171173 485.116089,207.785995 C485.046997,203.683609 483.713928,199.609787 483.048798,195.507492 C482.623016,192.881500 481.934967,190.161636 485.743011,189.141663 C489.245392,188.203568 490.097992,190.614456 491.073212,192.937347 C493.347168,198.353897 496.192383,203.415421 500.295135,207.666656 C503.832092,211.331589 507.890533,214.139893 513.124207,214.790085 C520.630310,215.722580 525.936707,213.402023 528.912781,207.883163 C532.180847,201.822830 531.193604,194.112885 526.325867,188.875641 C521.349365,183.521378 514.741028,180.560257 508.210449,176.849091z"/><path fill="currentColor" d="M303.199036,227.722031 C300.769348,227.566772 298.775665,227.462982 296.782532,227.349701 C291.927643,227.073776 291.446533,226.267807 293.757111,221.932800 C301.305298,207.771301 310.216522,194.523956 321.013763,182.640320 C349.249725,151.563400 383.715576,131.535492 425.314514,124.304237 C427.106781,123.992683 428.885223,123.446136 431.049042,124.250633 C431.614838,128.143295 430.637207,131.015396 426.439667,132.633759 C383.075348,149.352798 352.145935,179.683624 330.893219,220.441666 C328.972290,224.125610 326.507172,225.766144 322.530548,226.357773 C316.249451,227.292313 309.936096,227.352615 303.199036,227.722031z"/><path fill="currentColor" d="M589.369202,162.251389 C589.365601,173.882019 589.195557,185.040894 589.413330,196.192200 C589.616028,206.573502 596.806091,211.511734 605.689270,207.763901 C608.610229,206.531540 610.073059,204.673019 610.033875,201.299652 C609.898560,189.646240 609.906677,177.989075 610.049072,166.335648 C610.101257,162.067947 608.833740,159.223129 604.229797,158.625793 C602.015686,158.338516 600.490601,157.376328 600.743530,154.734924 C601.013000,151.919968 603.071594,151.798477 605.096008,151.756485 C612.094543,151.611221 619.050293,150.961731 625.951721,149.862213 C630.215698,149.182922 631.480652,150.855011 631.433167,154.999237 C631.267334,169.482773 631.368530,183.969681 631.412109,198.455170 C631.428833,204.014236 631.065247,209.830521 638.902588,210.711273 C640.469421,210.887329 640.880066,212.335175 640.863892,213.772873 C640.844543,215.498520 639.970215,216.640228 638.281616,216.965179 C629.955627,218.567413 621.616821,220.103668 613.292175,221.712738 C611.058289,222.144516 610.312927,221.017441 610.005798,219.075333 C609.755920,217.496002 610.458801,215.737244 609.128357,214.236649 C606.581543,214.358856 605.159485,216.454773 603.285706,217.689301 C592.255005,224.956863 578.961304,223.507629 572.422424,214.225677 C569.741211,210.419647 568.657776,206.116928 568.650757,201.515778 C568.633728,190.360214 568.604370,179.204483 568.650024,168.049103 C568.668396,163.546951 567.875000,159.735580 562.601746,158.620468 C560.455872,158.166687 559.696533,156.537537 559.975586,154.449844 C560.256775,152.346039 561.833435,151.812119 563.607605,151.793030 C570.779907,151.715851 577.866516,150.734177 584.951355,149.784058 C588.990540,149.242371 590.505676,150.904678 590.012390,154.824356 C589.721985,157.131989 589.580505,159.458389 589.369202,162.251389z"/><path fill="currentColor" d="M778.736206,190.649658 C776.772827,168.259872 789.748779,154.587646 806.259094,149.848206 C831.474182,142.610016 854.396484,161.819107 852.672302,187.940567 C851.564270,204.728348 838.886414,221.059082 818.704163,222.200394 C797.602722,223.393677 782.914185,211.841125 778.736206,190.649658 M809.306580,210.197556 C816.571411,217.559097 824.238892,216.221207 826.937195,206.290634 C830.757202,192.231888 830.420227,177.958099 825.230896,164.151764 C823.435730,159.375519 819.949097,156.002350 814.317322,156.141281 C808.717896,156.279434 805.815918,160.166809 804.580078,164.784164 C800.459045,180.182373 800.530884,195.334030 809.306580,210.197556z"/><path fill="currentColor" d="M680.929810,220.355194 C670.943176,220.350311 661.444641,220.360352 651.946350,220.328979 C649.823303,220.321976 647.363525,220.724152 647.023621,217.545685 C646.710327,214.615417 648.618591,213.976929 650.989197,213.545334 C654.201904,212.960419 655.866394,210.898849 655.863403,207.572540 C655.850891,193.743195 655.833740,179.913864 655.841492,166.084518 C655.843201,163.059067 654.048767,161.571625 651.435547,160.798111 C649.244934,160.149719 647.893250,158.941147 648.320557,156.484039 C648.725586,154.154480 650.580078,153.939240 652.472046,153.700058 C658.760010,152.905106 664.921143,151.500824 671.039307,149.853668 C672.739258,149.395996 674.487000,148.414093 676.550964,149.422577 C678.211548,153.194275 676.632812,157.477020 677.761475,162.080063 C680.210449,159.350449 682.252441,157.020157 684.355103,154.745911 C686.527283,152.396515 688.978882,150.387650 692.064392,149.365677 C696.163757,148.007874 700.038086,148.505615 703.258911,151.487076 C706.377014,154.373459 706.903687,158.121719 705.926575,162.086777 C705.058899,165.607346 702.951721,168.352661 700.178955,170.650040 C696.947937,173.327057 694.056458,172.453644 691.255493,169.959503 C688.783142,167.758026 686.113831,165.907623 682.747070,167.904266 C679.432068,169.870224 677.301025,172.711990 677.314026,176.824493 C677.344482,186.489456 677.389160,196.155136 677.301941,205.819382 C677.261902,210.263168 679.399658,212.546188 683.637024,213.358719 C686.053772,213.822128 689.529846,213.278244 689.142334,217.451294 C688.740234,221.781998 685.218628,219.863968 682.914856,220.340042 C682.435364,220.439117 681.918030,220.354889 680.929810,220.355194z"/><path fill="currentColor" d="M753.023315,148.643845 C758.441406,148.417221 763.126953,149.429260 767.364197,152.010391 C771.899841,154.773285 772.508118,159.370941 769.123291,164.019638 C765.940063,168.391418 763.422668,168.627258 758.757751,165.021713 C755.722168,162.675491 752.620422,160.424484 748.937866,159.169403 C742.768005,157.066574 738.267700,158.685806 734.824768,164.212265 C728.888855,173.740479 730.467834,191.187439 738.015320,199.466110 C745.542908,207.723038 755.492310,209.091660 765.072754,203.250641 C766.896729,202.138596 768.611145,199.680115 771.040527,202.474045 C773.425293,205.216812 771.379578,207.084961 769.790344,208.948227 C755.726013,225.437393 734.608276,226.858200 720.268005,212.316711 C706.023132,197.871948 707.840576,173.698471 724.386475,160.085724 C732.529541,153.386246 741.747070,148.962952 753.023315,148.643845z"/><path fill="currentColor" d="M413.553101,166.498016 C396.068207,192.131882 373.645996,210.799057 344.035065,220.824295 C346.063751,200.195648 401.532593,147.719009 425.354736,144.164337 C422.576050,152.465698 418.076996,159.289719 413.553101,166.498016z"/><path fill="currentColor" d="M213.276550,148.752213 C203.162277,142.521225 193.042923,137.079498 182.092117,133.411713 C177.602371,131.907959 176.438431,128.884232 176.593658,124.767212 C179.204391,123.144760 181.502441,124.451027 183.642807,124.830956 C215.300385,130.450363 243.542664,143.407227 268.132141,164.260864 C271.675812,167.266129 271.852600,169.299622 268.339264,172.508224 C263.835754,176.621124 259.887146,181.341675 255.111710,186.426224 C242.999634,171.643219 229.234085,159.217346 213.276550,148.752213z"/><path fill="currentColor" d="M195.647705,168.282257 C190.809952,160.720764 186.289413,153.399887 183.223770,145.276825 C185.547012,143.770325 187.081573,145.270325 188.583359,145.989731 C210.995926,156.726151 229.958038,171.834137 245.759827,191.009766 C248.225952,194.002426 248.147842,196.196701 246.022766,199.335770 C238.791931,210.016815 238.935394,210.056549 228.555252,202.574432 C215.583511,193.224274 204.907669,181.684616 195.647705,168.282257z"/><path fill="currentColor" d="M202.685669,119.379929 C193.201935,116.541840 183.738785,115.383133 173.322922,113.305901 C195.540085,104.169518 274.726746,126.584061 296.086670,147.668137 C290.879639,151.767334 285.826904,155.931946 280.549438,159.789108 C278.904541,160.991318 277.469330,159.174881 276.244659,158.133362 C254.717712,139.825806 230.255615,127.082733 202.685669,119.379929z"/></svg></div>
       <div>
-        <div class="logo-wordmark">Surco</div>
-        <div class="home-tagline">Cultiva inteligencia, cosecha resultados</div>
+        <div class="home-tagline" style="color:rgba(255,255,255,0.55);font-size:11px;font-style:italic;margin-top:3px;">Cultiva inteligencia, cosecha resultados</div>
       </div>
       <button class="logout-btn" onclick="logout()">Salir</button>
     </div>
@@ -964,11 +1107,11 @@ body{font-family:var(--sans);background:#ddd8cf;min-height:100vh;display:flex;ju
     </div>
     <button class="btn btn-primary" onclick="goTo('s-camera')">
       <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
-      Diagnosticar una planta
+      Diagnóstico de planta
     </button>
     <!-- ALERTAS DE ZONA -->
     <div id="alertas-zona-wrap" style="display:none;margin-bottom:20px;">
-      <div class="sec-label">⚠️ Alertas en tu zona</div>
+      <div class="sec-label">Alertas en tu zona</div>
       <div id="alertas-zona-list"></div>
     </div>
 
@@ -987,13 +1130,18 @@ body{font-family:var(--sans);background:#ddd8cf;min-height:100vh;display:flex;ju
     <!-- Widget clima -->
     <div id="weather-widget" style="display:none;background:white;border-radius:16px;border:1px solid var(--border);padding:14px 16px;margin-bottom:16px;"></div>
     <button id="location-btn" onclick="requestLocation()" style="width:100%;background:white;border:1.5px solid var(--border);border-radius:12px;padding:12px;font-size:14px;font-weight:500;color:var(--muted);font-family:var(--sans);cursor:pointer;margin-bottom:16px;display:flex;align-items:center;justify-content:center;gap:8px;">
-      📍 Obtener mi ubicación y clima
+      📍 Detectar ubicación y clima
     </button>
 
     <div class="upload-zone" id="upload-zone">
       <input type="file" accept="image/*" capture="environment" id="file-input" onchange="handleImage(event)"/>
-      <div class="upload-icon">📸</div>
-      <div class="upload-text">Toca para fotografiar</div>
+      <div class="upload-icon" style="margin-bottom:14px;">
+        <svg width="52" height="52" viewBox="0 0 24 24" fill="none" stroke="rgba(30,61,43,0.5)" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+          <circle cx="12" cy="13" r="4"/>
+        </svg>
+      </div>
+      <div class="upload-text">Fotografiar planta</div>
       <div class="upload-sub">o elegir desde la galería</div>
     </div>
     <div class="preview-box" id="preview-box">
@@ -1067,18 +1215,9 @@ body{font-family:var(--sans);background:#ddd8cf;min-height:100vh;display:flex;ju
 
 <!-- LOADING -->
 <div class="screen" id="s-loading">
-  <div style="background:var(--dark);padding:48px 20px 20px;">
-    <div style="font-family:var(--serif);font-size:18px;font-weight:600;color:white;">Analizando...</div>
-    <div style="font-size:12px;color:rgba(255,255,255,.6);margin-top:2px;">Motor Surco IA activo</div>
-  </div>
+  <div style="background:var(--dark);padding:48px 20px 20px;"><div style="font-family:var(--serif);font-size:18px;font-weight:600;color:white;">Analizando</div><div style="font-size:12px;color:rgba(255,255,255,.55);margin-top:2px;letter-spacing:.3px;">Motor Surco IA activo</div></div>
   <div class="loading-wrap">
-    <div class="loading-ring">
-      <svg width="44" height="34" viewBox="0 0 120 90" fill="none">
-        <path d="M60 75 C35 75 10 55 5 25 C20 40 38 50 60 50 C82 50 100 40 115 25 C110 55 85 75 60 75Z" fill="#1E3D2B" opacity=".9"/>
-        <path d="M60 60 C38 60 18 45 10 18 C25 32 41 40 60 40 C79 40 95 32 110 18 C102 45 82 60 60 60Z" fill="#1E3D2B" opacity=".6"/>
-        <path d="M60 45 C42 45 26 33 18 10 C30 24 44 31 60 31 C76 31 90 24 102 10 C94 33 78 45 60 45Z" fill="#1E3D2B" opacity=".35"/>
-      </svg>
-    </div>
+    <div class="loading-ring"><div style="color:rgba(232,240,235,0.9);width:64px;height:22px;"><svg viewBox="0 0 1024 336" xmlns="http://www.w3.org/2000/svg"><path fill="currentColor" d="M327.762207,161.781784 C308.995667,178.492813 294.252716,197.901627 283.044159,219.928619 C280.814880,224.309540 278.431061,225.069260 274.048309,223.865799 C266.966675,221.921188 260.088470,219.469635 253.217529,216.922729 C249.419998,215.515060 248.764175,213.740097 250.999908,210.264587 C274.597076,173.582214 305.725220,145.598969 345.879883,128.088150 C372.666565,116.406906 400.685211,110.742485 429.953461,111.581856 C431.055847,111.613480 432.318054,111.189842 433.844452,113.556427 C393.171906,118.307755 358.145050,134.672592 327.762207,161.781784z"/><path fill="currentColor" d="M508.210449,176.849091 C504.554688,174.478668 501.121429,172.422104 497.895081,170.080429 C487.530792,162.558075 483.605530,152.217789 486.006317,139.855713 C488.315552,127.964867 496.610138,121.307556 507.784546,118.155052 C519.128784,114.954620 530.526245,116.007767 541.848267,118.700073 C543.722839,119.145821 544.801392,120.217285 545.042114,122.047302 C545.822083,127.977409 546.550049,133.914505 547.269531,139.852371 C547.567200,142.309753 546.913147,143.938110 544.059570,144.457718 C541.432068,144.936157 540.448059,143.698151 539.661743,141.608078 C538.255432,137.870087 536.918396,134.072845 534.370911,130.908295 C529.755981,125.175529 523.646973,123.274994 516.551270,124.332787 C511.329987,125.111145 507.703369,128.012451 506.067505,133.121063 C503.976013,139.652435 505.480194,145.255508 510.606750,149.841309 C515.130066,153.887451 520.507751,156.566376 525.878723,159.226624 C530.966431,161.746582 535.880737,164.514801 540.322083,168.085953 C556.960266,181.464325 555.180115,206.052292 536.663696,216.849060 C524.238403,224.094116 511.028015,223.469803 497.428711,220.846664 C489.711426,219.358078 485.257263,216.171173 485.116089,207.785995 C485.046997,203.683609 483.713928,199.609787 483.048798,195.507492 C482.623016,192.881500 481.934967,190.161636 485.743011,189.141663 C489.245392,188.203568 490.097992,190.614456 491.073212,192.937347 C493.347168,198.353897 496.192383,203.415421 500.295135,207.666656 C503.832092,211.331589 507.890533,214.139893 513.124207,214.790085 C520.630310,215.722580 525.936707,213.402023 528.912781,207.883163 C532.180847,201.822830 531.193604,194.112885 526.325867,188.875641 C521.349365,183.521378 514.741028,180.560257 508.210449,176.849091z"/><path fill="currentColor" d="M303.199036,227.722031 C300.769348,227.566772 298.775665,227.462982 296.782532,227.349701 C291.927643,227.073776 291.446533,226.267807 293.757111,221.932800 C301.305298,207.771301 310.216522,194.523956 321.013763,182.640320 C349.249725,151.563400 383.715576,131.535492 425.314514,124.304237 C427.106781,123.992683 428.885223,123.446136 431.049042,124.250633 C431.614838,128.143295 430.637207,131.015396 426.439667,132.633759 C383.075348,149.352798 352.145935,179.683624 330.893219,220.441666 C328.972290,224.125610 326.507172,225.766144 322.530548,226.357773 C316.249451,227.292313 309.936096,227.352615 303.199036,227.722031z"/><path fill="currentColor" d="M589.369202,162.251389 C589.365601,173.882019 589.195557,185.040894 589.413330,196.192200 C589.616028,206.573502 596.806091,211.511734 605.689270,207.763901 C608.610229,206.531540 610.073059,204.673019 610.033875,201.299652 C609.898560,189.646240 609.906677,177.989075 610.049072,166.335648 C610.101257,162.067947 608.833740,159.223129 604.229797,158.625793 C602.015686,158.338516 600.490601,157.376328 600.743530,154.734924 C601.013000,151.919968 603.071594,151.798477 605.096008,151.756485 C612.094543,151.611221 619.050293,150.961731 625.951721,149.862213 C630.215698,149.182922 631.480652,150.855011 631.433167,154.999237 C631.267334,169.482773 631.368530,183.969681 631.412109,198.455170 C631.428833,204.014236 631.065247,209.830521 638.902588,210.711273 C640.469421,210.887329 640.880066,212.335175 640.863892,213.772873 C640.844543,215.498520 639.970215,216.640228 638.281616,216.965179 C629.955627,218.567413 621.616821,220.103668 613.292175,221.712738 C611.058289,222.144516 610.312927,221.017441 610.005798,219.075333 C609.755920,217.496002 610.458801,215.737244 609.128357,214.236649 C606.581543,214.358856 605.159485,216.454773 603.285706,217.689301 C592.255005,224.956863 578.961304,223.507629 572.422424,214.225677 C569.741211,210.419647 568.657776,206.116928 568.650757,201.515778 C568.633728,190.360214 568.604370,179.204483 568.650024,168.049103 C568.668396,163.546951 567.875000,159.735580 562.601746,158.620468 C560.455872,158.166687 559.696533,156.537537 559.975586,154.449844 C560.256775,152.346039 561.833435,151.812119 563.607605,151.793030 C570.779907,151.715851 577.866516,150.734177 584.951355,149.784058 C588.990540,149.242371 590.505676,150.904678 590.012390,154.824356 C589.721985,157.131989 589.580505,159.458389 589.369202,162.251389z"/><path fill="currentColor" d="M778.736206,190.649658 C776.772827,168.259872 789.748779,154.587646 806.259094,149.848206 C831.474182,142.610016 854.396484,161.819107 852.672302,187.940567 C851.564270,204.728348 838.886414,221.059082 818.704163,222.200394 C797.602722,223.393677 782.914185,211.841125 778.736206,190.649658 M809.306580,210.197556 C816.571411,217.559097 824.238892,216.221207 826.937195,206.290634 C830.757202,192.231888 830.420227,177.958099 825.230896,164.151764 C823.435730,159.375519 819.949097,156.002350 814.317322,156.141281 C808.717896,156.279434 805.815918,160.166809 804.580078,164.784164 C800.459045,180.182373 800.530884,195.334030 809.306580,210.197556z"/><path fill="currentColor" d="M680.929810,220.355194 C670.943176,220.350311 661.444641,220.360352 651.946350,220.328979 C649.823303,220.321976 647.363525,220.724152 647.023621,217.545685 C646.710327,214.615417 648.618591,213.976929 650.989197,213.545334 C654.201904,212.960419 655.866394,210.898849 655.863403,207.572540 C655.850891,193.743195 655.833740,179.913864 655.841492,166.084518 C655.843201,163.059067 654.048767,161.571625 651.435547,160.798111 C649.244934,160.149719 647.893250,158.941147 648.320557,156.484039 C648.725586,154.154480 650.580078,153.939240 652.472046,153.700058 C658.760010,152.905106 664.921143,151.500824 671.039307,149.853668 C672.739258,149.395996 674.487000,148.414093 676.550964,149.422577 C678.211548,153.194275 676.632812,157.477020 677.761475,162.080063 C680.210449,159.350449 682.252441,157.020157 684.355103,154.745911 C686.527283,152.396515 688.978882,150.387650 692.064392,149.365677 C696.163757,148.007874 700.038086,148.505615 703.258911,151.487076 C706.377014,154.373459 706.903687,158.121719 705.926575,162.086777 C705.058899,165.607346 702.951721,168.352661 700.178955,170.650040 C696.947937,173.327057 694.056458,172.453644 691.255493,169.959503 C688.783142,167.758026 686.113831,165.907623 682.747070,167.904266 C679.432068,169.870224 677.301025,172.711990 677.314026,176.824493 C677.344482,186.489456 677.389160,196.155136 677.301941,205.819382 C677.261902,210.263168 679.399658,212.546188 683.637024,213.358719 C686.053772,213.822128 689.529846,213.278244 689.142334,217.451294 C688.740234,221.781998 685.218628,219.863968 682.914856,220.340042 C682.435364,220.439117 681.918030,220.354889 680.929810,220.355194z"/><path fill="currentColor" d="M753.023315,148.643845 C758.441406,148.417221 763.126953,149.429260 767.364197,152.010391 C771.899841,154.773285 772.508118,159.370941 769.123291,164.019638 C765.940063,168.391418 763.422668,168.627258 758.757751,165.021713 C755.722168,162.675491 752.620422,160.424484 748.937866,159.169403 C742.768005,157.066574 738.267700,158.685806 734.824768,164.212265 C728.888855,173.740479 730.467834,191.187439 738.015320,199.466110 C745.542908,207.723038 755.492310,209.091660 765.072754,203.250641 C766.896729,202.138596 768.611145,199.680115 771.040527,202.474045 C773.425293,205.216812 771.379578,207.084961 769.790344,208.948227 C755.726013,225.437393 734.608276,226.858200 720.268005,212.316711 C706.023132,197.871948 707.840576,173.698471 724.386475,160.085724 C732.529541,153.386246 741.747070,148.962952 753.023315,148.643845z"/><path fill="currentColor" d="M413.553101,166.498016 C396.068207,192.131882 373.645996,210.799057 344.035065,220.824295 C346.063751,200.195648 401.532593,147.719009 425.354736,144.164337 C422.576050,152.465698 418.076996,159.289719 413.553101,166.498016z"/><path fill="currentColor" d="M213.276550,148.752213 C203.162277,142.521225 193.042923,137.079498 182.092117,133.411713 C177.602371,131.907959 176.438431,128.884232 176.593658,124.767212 C179.204391,123.144760 181.502441,124.451027 183.642807,124.830956 C215.300385,130.450363 243.542664,143.407227 268.132141,164.260864 C271.675812,167.266129 271.852600,169.299622 268.339264,172.508224 C263.835754,176.621124 259.887146,181.341675 255.111710,186.426224 C242.999634,171.643219 229.234085,159.217346 213.276550,148.752213z"/><path fill="currentColor" d="M195.647705,168.282257 C190.809952,160.720764 186.289413,153.399887 183.223770,145.276825 C185.547012,143.770325 187.081573,145.270325 188.583359,145.989731 C210.995926,156.726151 229.958038,171.834137 245.759827,191.009766 C248.225952,194.002426 248.147842,196.196701 246.022766,199.335770 C238.791931,210.016815 238.935394,210.056549 228.555252,202.574432 C215.583511,193.224274 204.907669,181.684616 195.647705,168.282257z"/><path fill="currentColor" d="M202.685669,119.379929 C193.201935,116.541840 183.738785,115.383133 173.322922,113.305901 C195.540085,104.169518 274.726746,126.584061 296.086670,147.668137 C290.879639,151.767334 285.826904,155.931946 280.549438,159.789108 C278.904541,160.991318 277.469330,159.174881 276.244659,158.133362 C254.717712,139.825806 230.255615,127.082733 202.685669,119.379929z"/></svg></div></div>
     <div class="loading-title">Analizando tu planta</div>
     <div class="loading-sub">La IA estudia la imagen y prepara<br>tu diagnóstico personalizado</div>
     <div class="steps">
