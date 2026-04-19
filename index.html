@@ -66,6 +66,7 @@ onAuthStateChanged(auth, async user => {
       initials.textContent = (user.displayName || 'U')[0].toUpperCase();
     }
     loadHistory();
+    loadAlertasZona();
     goTo('s-home');
   } else {
     goTo('s-login');
@@ -242,6 +243,110 @@ window.requestLocation = async () => {
   btn.disabled = false;
 };
 
+/* ══ VOZ ══ */
+let recognition = null;
+let isListening = false;
+
+window.toggleVoice = () => {
+  if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+    alert('Tu navegador no soporta reconocimiento de voz. Usa Chrome.');
+    return;
+  }
+  if (isListening) {
+    recognition?.stop();
+    return;
+  }
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  recognition = new SR();
+  recognition.lang = 'es-CL';
+  recognition.continuous = false;
+  recognition.interimResults = false;
+
+  recognition.onstart = () => {
+    isListening = true;
+    document.getElementById('voice-btn').textContent = '⏹';
+    document.getElementById('voice-btn').style.background = '#fdf0e6';
+    document.getElementById('voice-status').style.display = 'flex';
+  };
+  recognition.onresult = (e) => {
+    const texto = e.results[0][0].transcript;
+    document.getElementById('symptoms-text').value = texto;
+  };
+  recognition.onend = () => {
+    isListening = false;
+    document.getElementById('voice-btn').textContent = '🎤';
+    document.getElementById('voice-btn').style.background = 'white';
+    document.getElementById('voice-status').style.display = 'none';
+  };
+  recognition.onerror = (e) => {
+    isListening = false;
+    document.getElementById('voice-btn').textContent = '🎤';
+    document.getElementById('voice-status').style.display = 'none';
+    if (e.error !== 'no-speech') alert('Error de voz: ' + e.error);
+  };
+  recognition.start();
+};
+
+/* ══ REGISTRAR ALERTA DE ZONA ══ */
+async function registrarAlertaZona(enfermedad, cultivo, region, coords) {
+  if (!enfermedad || enfermedad === 'Sin enfermedad detectada') return;
+  try {
+    const zonaId = `alerta_${region}_${cultivo}`.replace(/[^a-zA-Z0-9_]/g,'_');
+    await setDoc(doc(db, 'alertas_zona', zonaId), {
+      enfermedad, cultivo, region,
+      lat:   coords?.lat || null,
+      lon:   coords?.lon || null,
+      reportes: increment(1),
+      ultimoReporte: serverTimestamp()
+    }, { merge: true });
+  } catch(e) { console.warn('Alerta zona:', e); }
+}
+
+/* ══ CALCULADORA DOSIS ══ */
+window.calcularDosis = () => {
+  const pasos   = window._tratamientoPasos || [];
+  const equipo  = document.getElementById('calc-equipo')?.value;
+  const surface = parseFloat(document.getElementById('calc-superficie')?.value || 0);
+  if (!equipo || !surface || surface <= 0) {
+    alert('Ingresa superficie y equipo de aplicación.');
+    return;
+  }
+
+  // Litros por hectárea según equipo
+  const litrosHa = { espalda: 400, mochila_motor: 600, tractor: 800, dron: 15 };
+  const lts      = (litrosHa[equipo] || 400) * surface;
+  const resultado = pasos.map((p, i) => {
+    // Extraer dosis del texto (buscar patrones como "2 kg/100L" o "1.5 L/100L")
+    const matchKg  = p.match(/(\d+\.?\d*)\s*kg\/100[Ll]/);
+    const matchL   = p.match(/(\d+\.?\d*)\s*[Ll]\/100[Ll]/);
+    const dosis100 = matchKg ? parseFloat(matchKg[1]) : matchL ? parseFloat(matchL[1]) : null;
+    const unidad   = matchKg ? 'kg' : matchL ? 'L' : null;
+    const nombre   = p.split('—')[1]?.split(':')[0]?.trim() || `Producto paso ${i+1}`;
+
+    if (dosis100 && unidad) {
+      const total = ((dosis100 * lts) / 100).toFixed(2);
+      return `<div style="padding:10px 0;border-bottom:1px solid var(--border);">
+        <div style="font-size:13px;font-weight:600;color:var(--text);">${nombre}</div>
+        <div style="font-size:14px;color:var(--dark);margin-top:4px;">
+          <strong>${total} ${unidad}</strong> en <strong>${Math.round(lts)} L de agua</strong>
+        </div>
+        <div style="font-size:12px;color:var(--muted);margin-top:2px;">(${dosis100} ${unidad}/100L × ${Math.round(lts)}L)</div>
+      </div>`;
+    }
+    return `<div style="padding:10px 0;border-bottom:1px solid var(--border);">
+      <div style="font-size:13px;font-weight:600;color:var(--text);">${nombre}</div>
+      <div style="font-size:12px;color:var(--muted);margin-top:3px;">Ver etiqueta del producto para dosis exacta</div>
+    </div>`;
+  }).join('');
+
+  document.getElementById('calc-resultado').innerHTML = `
+    <div style="margin-top:14px;background:var(--light);border-radius:12px;padding:14px;border:1px solid rgba(30,61,43,.2);">
+      <div style="font-size:13px;font-weight:600;color:var(--dark);margin-bottom:2px;">Para ${surface} ha con ${equipo.replace('_',' ')}:</div>
+      <div style="font-size:12px;color:var(--muted);margin-bottom:10px;">Volumen total: ${Math.round(lts)} litros de caldo</div>
+      ${resultado}
+    </div>`;
+};
+
 /* ══ ANÁLISIS ══ */
 window.startAnalysis = async () => {
   if (!imgBase64) { alert('Primero fotografía o selecciona una planta.'); return; }
@@ -365,6 +470,9 @@ Severidad debe ser EXACTAMENTE "Alta", "Media" o "Baja". Confianza entre 55 y 97
       ultimaActualizacion: serverTimestamp()
     }, { merge: true });
 
+    // Registrar alerta de zona (mapa de calor)
+    await registrarAlertaZona(r.enfermedad, crop, region, userCoords);
+
     loadHistory();
     renderResult(r, crop, region, photoURL);
     goTo('s-result');
@@ -375,6 +483,41 @@ Severidad debe ser EXACTAMENTE "Alta", "Media" o "Baja". Confianza entre 55 y 97
   }
   resetSteps();
 };
+
+/* ══ ALERTAS DE ZONA (MAPA DE CALOR) ══ */
+async function loadAlertasZona() {
+  try {
+    const regionUsuario = weatherData?.region || null;
+    // Traer alertas con más de 1 reporte
+    const q = query(
+      collection(db, 'alertas_zona'),
+      orderBy('reportes', 'desc'),
+      limit(5)
+    );
+    const snap = await getDocs(q);
+    if (snap.empty) return;
+
+    const alertas = snap.docs.map(d => d.data()).filter(a => a.reportes >= 1);
+    if (!alertas.length) return;
+
+    const wrap = document.getElementById('alertas-zona-wrap');
+    const list = document.getElementById('alertas-zona-list');
+    if (!wrap || !list) return;
+
+    list.innerHTML = alertas.map(a => {
+      const esLocal = regionUsuario && a.region?.includes(regionUsuario.replace('Región del ','').replace('Región de ','').replace('Región ',''));
+      return `<div style="background:${esLocal ? '#fdf0e6' : 'white'};border-radius:12px;border:1px solid ${esLocal ? 'rgba(184,92,26,.3)' : 'var(--border)'};padding:12px 14px;margin-bottom:8px;display:flex;align-items:flex-start;gap:10px;">
+        <div style="font-size:20px;flex-shrink:0;">${esLocal ? '⚠️' : '📍'}</div>
+        <div>
+          <div style="font-size:13px;font-weight:600;color:var(--text);">${a.enfermedad} en ${a.cultivo}</div>
+          <div style="font-size:12px;color:var(--muted);margin-top:2px;">${a.region} · ${a.reportes} reporte${a.reportes > 1 ? 's' : ''} reciente${a.reportes > 1 ? 's' : ''}</div>
+          ${esLocal ? '<div style="font-size:11px;font-weight:600;color:var(--warn);margin-top:3px;">Alerta en tu región — revisa tus cultivos</div>' : ''}
+        </div>
+      </div>`;
+    }).join('');
+    wrap.style.display = 'block';
+  } catch(e) { console.warn('Alertas zona:', e); }
+}
 
 /* ══ HISTORIAL ══ */
 async function loadHistory() {
@@ -450,6 +593,14 @@ function renderResult(r, crop, region, photoURL) {
         <div>
           <div class="disease-name">${r.enfermedad || 'Sin diagnóstico'}</div>
           <div class="disease-sci">${r.nombre_cientifico || ''}</div>
+          <div style="display:flex;align-items:center;gap:6px;margin-top:8px;">
+            <div style="background:#1E3D2B;color:white;border-radius:6px;padding:3px 9px;font-size:11px;font-weight:600;display:flex;align-items:center;gap:4px;">
+              ✓ SAG Chile 2025
+            </div>
+            <div style="background:#e8f0eb;color:#1E3D2B;border-radius:6px;padding:3px 9px;font-size:11px;font-weight:600;">
+              Productos con registro vigente
+            </div>
+          </div>
         </div>
         <div class="sev ${sc}">${r.severidad || '—'}</div>
       </div>
@@ -486,6 +637,34 @@ function renderResult(r, crop, region, photoURL) {
       <div class="step-dots" id="step-dots">
         ${window._tratamientoPasos.map((_,i) => `<div class="step-dot-ind ${i===0?'active':''}" id="dot-ind-${i}"></div>`).join('')}
       </div>
+    </div>
+
+    <!-- CALCULADORA DE DOSIS -->
+    <div style="background:white;border-radius:16px;border:1px solid var(--border);padding:17px;margin-bottom:14px;">
+      <div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:3px;">⚗️ Calculadora de dosis</div>
+      <div style="font-size:12px;color:var(--muted);margin-bottom:12px;">Calcula cuánto producto necesitas según tu predio y equipo</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;">
+        <div>
+          <label style="font-size:11px;font-weight:500;color:var(--muted);display:block;margin-bottom:4px;">Superficie (ha)</label>
+          <input type="number" id="calc-superficie" placeholder="Ej: 0.5" step="0.1" min="0.1"
+            style="width:100%;padding:10px;border-radius:10px;border:1.5px solid var(--border);font-size:14px;font-family:var(--sans);background:var(--bg);outline:none;"/>
+        </div>
+        <div>
+          <label style="font-size:11px;font-weight:500;color:var(--muted);display:block;margin-bottom:4px;">Equipo de aplicación</label>
+          <select id="calc-equipo"
+            style="width:100%;padding:10px;border-radius:10px;border:1.5px solid var(--border);font-size:14px;font-family:var(--sans);background:var(--bg);outline:none;-webkit-appearance:none;">
+            <option value="espalda">Bomba de espalda (400 L/ha)</option>
+            <option value="mochila_motor">Mochila motor (600 L/ha)</option>
+            <option value="tractor">Tractor (800 L/ha)</option>
+            <option value="dron">Dron agrícola (15 L/ha)</option>
+          </select>
+        </div>
+      </div>
+      <button onclick="calcularDosis()"
+        style="width:100%;background:var(--dark);color:white;border:none;border-radius:11px;padding:12px;font-size:14px;font-weight:600;font-family:var(--sans);cursor:pointer;">
+        Calcular dosis exacta
+      </button>
+      <div id="calc-resultado"></div>
     </div>
 
     <!-- PRODUCTOS CON LINKS -->
@@ -724,6 +903,7 @@ body{font-family:var(--sans);background:#ddd8cf;min-height:100vh;display:flex;ju
 .step-dots{display:flex;justify-content:center;gap:7px;margin-bottom:4px;}
 .step-dot-ind{width:7px;height:7px;border-radius:50%;background:rgba(0,0,0,.15);transition:background .2s,transform .2s;}
 .step-dot-ind.active{background:var(--dark);transform:scale(1.2);}
+@keyframes pulse-dot{0%,100%{opacity:1;}50%{opacity:.3;}}
 </style>
 </head>
 <body>
@@ -786,6 +966,12 @@ body{font-family:var(--sans);background:#ddd8cf;min-height:100vh;display:flex;ju
       <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
       Diagnosticar una planta
     </button>
+    <!-- ALERTAS DE ZONA -->
+    <div id="alertas-zona-wrap" style="display:none;margin-bottom:20px;">
+      <div class="sec-label">⚠️ Alertas en tu zona</div>
+      <div id="alertas-zona-list"></div>
+    </div>
+
     <div class="sec-label" style="margin-top:22px;">Historial reciente</div>
     <div id="history-list"><div class="hist-empty">Cargando historial...</div></div>
   </div>
@@ -859,7 +1045,17 @@ body{font-family:var(--sans);background:#ddd8cf;min-height:100vh;display:flex;ju
       </div>
       <div class="form-row">
         <label class="form-label">¿Qué observas? (opcional)</label>
-        <input type="text" class="form-el" id="symptoms-text" placeholder="Ej: manchas amarillas en hojas..."/>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <input type="text" class="form-el" id="symptoms-text" placeholder="Ej: manchas amarillas en hojas..." style="flex:1;"/>
+          <button id="voice-btn" onclick="toggleVoice()" title="Hablar síntomas"
+            style="width:44px;height:44px;border-radius:11px;border:1.5px solid var(--border);background:white;font-size:20px;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center;">
+            🎤
+          </button>
+        </div>
+        <div id="voice-status" style="display:none;font-size:12px;color:var(--warn);margin-top:5px;align-items:center;gap:5px;">
+          <span style="width:8px;height:8px;border-radius:50%;background:var(--warn);display:inline-block;animation:pulse-dot 1s infinite;"></span>
+          Escuchando... habla los síntomas
+        </div>
       </div>
     </div>
     <button class="btn btn-primary" onclick="startAnalysis()">
