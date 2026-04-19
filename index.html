@@ -488,6 +488,36 @@ function renderResult(r, crop, region, photoURL) {
       </div>
     </div>
 
+    <!-- PRODUCTOS CON LINKS -->
+    ${window._tratamientoPasos && window._tratamientoPasos.length > 0 ? `
+    <div style="background:white;border-radius:16px;border:1px solid var(--border);padding:17px;margin-bottom:14px;">
+      <div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:12px;">🛒 Buscar productos online</div>
+      ${window._tratamientoPasos.map((paso, i) => {
+        const nombreProducto = paso.split('—')[1]?.split(':')[0]?.trim() ||
+                               paso.split(':')[0]?.replace(/^Paso \d+/,'')?.replace(/^[^a-zA-Z]*/,'')?.trim() ||
+                               paso.substring(0, 40);
+        const queryML  = encodeURIComponent(nombreProducto + ' fungicida plaguicida Chile');
+        const queryGoo = encodeURIComponent(nombreProducto + ' precio Chile');
+        return `<div style="padding:10px 0;border-bottom:1px solid var(--border);">
+          <div style="font-size:13px;font-weight:500;color:var(--text);margin-bottom:7px;">Paso ${i+1}: ${nombreProducto}</div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <a href="https://listado.mercadolibre.cl/${queryML}" target="_blank"
+               style="display:flex;align-items:center;gap:5px;background:#fff159;color:#333;border-radius:8px;padding:6px 11px;font-size:12px;font-weight:600;text-decoration:none;border:1px solid rgba(0,0,0,.1);">
+              🛍 MercadoLibre
+            </a>
+            <a href="https://www.google.com/search?q=${queryGoo}" target="_blank"
+               style="display:flex;align-items:center;gap:5px;background:#f1f3f4;color:#333;border-radius:8px;padding:6px 11px;font-size:12px;font-weight:600;text-decoration:none;border:1px solid rgba(0,0,0,.1);">
+              🔍 Google
+            </a>
+            <a href="https://www.agronomia.cl/buscar?q=${encodeURIComponent(nombreProducto)}" target="_blank"
+               style="display:flex;align-items:center;gap:5px;background:var(--light);color:var(--dark);border-radius:8px;padding:6px 11px;font-size:12px;font-weight:600;text-decoration:none;border:1px solid rgba(30,61,43,.2);">
+              🌱 Tienda agrícola
+            </a>
+          </div>
+        </div>`;
+      }).join('')}
+    </div>` : ''}
+
     <!-- LOCALES CERCANOS -->
     <button onclick="window.open('${mapsQueryGeo}', '_blank')" style="width:100%;background:var(--dark);color:white;border:none;border-radius:14px;padding:15px 20px;font-size:15px;font-weight:600;font-family:var(--sans);cursor:pointer;display:flex;align-items:center;justify-content:center;gap:10px;margin-bottom:14px;">
       📍 Ver agroveterinarias cercanas
