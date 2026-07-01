@@ -37,6 +37,7 @@ export interface Database {
           diagnosticos_limite?: number;
           last_login?: string;
         };
+        Relationships: [];
       };
       diagnosticos: {
         Row: {
@@ -79,6 +80,25 @@ export interface Database {
           donde_comprar?: string | null;
           photo_url?: string | null;
         };
+        Update: {
+          user_name?: string | null;
+          crop?: string;
+          region?: string;
+          symptoms?: string | null;
+          clima?: unknown | null;
+          enfermedad?: string;
+          nombre_cientifico?: string | null;
+          severidad?: string;
+          confianza?: number;
+          causa?: string | null;
+          sintomas_detectados?: string | null;
+          tratamiento?: string[] | null;
+          alerta_propagacion?: string | null;
+          cuando_actuar?: string | null;
+          donde_comprar?: string | null;
+          photo_url?: string | null;
+        };
+        Relationships: [];
       };
       enfermedades_sag: {
         Row: {
@@ -92,6 +112,27 @@ export interface Database {
           productos_certificados_sag: string[];
           alternativa_hogar: string | null;
         };
+        Insert: {
+          cultivo: string;
+          nombre: string;
+          nombre_cientifico?: string;
+          sintomas?: string;
+          causa?: string;
+          urgencia?: string;
+          productos_certificados_sag?: string[];
+          alternativa_hogar?: string | null;
+        };
+        Update: {
+          cultivo?: string;
+          nombre?: string;
+          nombre_cientifico?: string;
+          sintomas?: string;
+          causa?: string;
+          urgencia?: string;
+          productos_certificados_sag?: string[];
+          alternativa_hogar?: string | null;
+        };
+        Relationships: [];
       };
       zonas: {
         Row: {
@@ -102,6 +143,22 @@ export interface Database {
           enfermedades: Record<string, number>;
           ultima_actualizacion: string;
         };
+        Insert: {
+          id: string;
+          region: string;
+          crop: string;
+          total_diagnosticos?: number;
+          enfermedades?: Record<string, number>;
+          ultima_actualizacion?: string;
+        };
+        Update: {
+          region?: string;
+          crop?: string;
+          total_diagnosticos?: number;
+          enfermedades?: Record<string, number>;
+          ultima_actualizacion?: string;
+        };
+        Relationships: [];
       };
       alertas_zona: {
         Row: {
@@ -114,10 +171,49 @@ export interface Database {
           reportes: number;
           ultimo_reporte: string;
         };
+        Insert: {
+          id: string;
+          enfermedad: string;
+          cultivo: string;
+          region: string;
+          lat?: number | null;
+          lon?: number | null;
+          reportes?: number;
+          ultimo_reporte?: string;
+        };
+        Update: {
+          enfermedad?: string;
+          cultivo?: string;
+          region?: string;
+          lat?: number | null;
+          lon?: number | null;
+          reportes?: number;
+          ultimo_reporte?: string;
+        };
+        Relationships: [];
       };
     };
     Views: Record<string, never>;
-    Functions: Record<string, never>;
+    Functions: {
+      incrementar_zona: {
+        Args: {
+          p_region: string;
+          p_crop: string;
+          p_enfermedad: string;
+        };
+        Returns: void;
+      };
+      registrar_alerta_zona: {
+        Args: {
+          p_enfermedad: string;
+          p_cultivo: string;
+          p_region: string;
+          p_lat: number | null;
+          p_lon: number | null;
+        };
+        Returns: void;
+      };
+    };
     Enums: Record<string, never>;
   };
 }

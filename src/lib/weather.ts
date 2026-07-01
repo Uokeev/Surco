@@ -75,7 +75,7 @@ export async function obtenerClima(
       viento: Math.round(current.wind_speed_10m),
       ciudad,
       region,
-      lluvia_3dias,
+      lluvia_3dias: lluvia3dias,
     };
   } catch (error) {
     console.warn("Error obteniendo clima:", error);

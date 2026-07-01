@@ -42,14 +42,14 @@ export interface DiagnosticoResult {
 
 export interface Diagnostico extends DiagnosticoResult {
   id: string;
-  userId: string;
-  userName: string | null;
+  user_id: string;
+  user_name: string | null;
   crop: string;
   region: string;
   symptoms: string | null;
   clima: CondicionesClimaticas | null;
-  timestamp: string;
-  photoURL?: string | null;
+  created_at: string;
+  photo_url?: string | null;
 }
 
 // ─── Clima ──────────────────────────────────────────────
@@ -83,13 +83,14 @@ export interface EnfermedadSAG {
 
 // ─── Alerta de zona ───────────────────────────────────
 export interface AlertaZona {
+  id: string;
   enfermedad: string;
   cultivo: string;
   region: string;
   lat: number | null;
   lon: number | null;
   reportes: number;
-  ultimoReporte: string;
+  ultimo_reporte: string;
 }
 
 // ─── Historial ─────────────────────────────────────────

@@ -33,7 +33,7 @@ export default function DashboardPage() {
         .limit(5);
 
       if (error) throw error;
-      setHistorial((data ?? []) as Diagnostico[]);
+      setHistorial((data ?? []) as unknown as Diagnostico[]);
     } catch (e) {
       console.warn("Error cargando historial:", e);
     } finally {
@@ -53,7 +53,7 @@ export default function DashboardPage() {
       });
       const data = await res.json();
       if (data.ok && data.data) {
-        setAlertas(data.data as AlertaZona[]);
+        setAlertas(data.data as unknown as AlertaZona[]);
       }
     } catch (e) {
       console.warn("Error cargando alertas:", e);

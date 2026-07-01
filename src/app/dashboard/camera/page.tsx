@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/components/AuthProvider";
 import { ImageUpload } from "@/components/Camera/ImageUpload";
@@ -37,6 +37,7 @@ export default function CameraPage() {
   const [symptoms, setSymptoms] = useState("");
   const [usoTipo, setUsoTipo] = useState<UsoTipo>("hogar");
   const [isListening, setIsListening] = useState(false);
+  const recognitionRef = useRef<SpeechRecognition | null>(null);
 
   const [view, setView] = useState<"form" | "analyzing" | "result">("form");
   const [lastResult, setLastResult] = useState<DiagnosticoResult | null>(null);
@@ -50,6 +51,14 @@ export default function CameraPage() {
     }
   }, [user, authLoading, router]);
 
+  // Cleanup recognition on unmount
+  useEffect(() => {
+    return () => {
+      recognitionRef.current?.stop();
+      recognitionRef.current = null;
+    };
+  }, []);
+
   // Voice recognition
   const toggleVoice = useCallback(() => {
     if (!("webkitSpeechRecognition" in window) && !("SpeechRecognition" in window)) {
@@ -58,26 +67,35 @@ export default function CameraPage() {
     }
 
     if (isListening) {
-      window.SpeechRecognition?.stop();
-      window.webkitSpeechRecognition?.stop();
+      recognitionRef.current?.stop();
+      recognitionRef.current = null;
       setIsListening(false);
       return;
     }
 
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SR) {
+      alert("Tu navegador no soporta reconocimiento de voz. Usa Chrome.");
+      return;
+    }
     const recognition = new SR();
+    recognitionRef.current = recognition;
     recognition.lang = "es-CL";
     recognition.continuous = false;
     recognition.interimResults = false;
 
     recognition.onstart = () => setIsListening(true);
     recognition.onresult = (e: SpeechRecognitionEvent) => {
-      const texto = e.results[0][0].transcript;
+      const texto = e.results[0]?.[0]?.transcript ?? "";
       setSymptoms(texto);
     };
-    recognition.onend = () => setIsListening(false);
+    recognition.onend = () => {
+      setIsListening(false);
+      recognitionRef.current = null;
+    };
     recognition.onerror = (e: SpeechRecognitionErrorEvent) => {
       setIsListening(false);
+      recognitionRef.current = null;
       if (e.error !== "no-speech") {
         console.warn("Voice error:", e.error);
       }

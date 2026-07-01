@@ -3,8 +3,8 @@ import { z } from "zod";
 import { getAuthenticatedUser, createSupabaseServerClient } from "@/lib/supabase/server";
 import { buscarEnfermedadesSAG, construirPromptDiagnostico } from "@/lib/sag";
 import { formatearClimaContexto } from "@/lib/weather";
-import { getClientIP, validarImagenBase64, sanitizarTexto } from "@/lib/utils";
-import { checkRateLimit, userKey, ipKey } from "@/lib/rate-limit";
+import { validarImagenBase64, sanitizarTexto } from "@/lib/utils";
+import { checkRateLimit, userKey } from "@/lib/rate-limit";
 import type { DiagnosticoResult, ApiResponse } from "@/types";
 
 // ─── Validación con Zod ──────────────────────────────
