@@ -1,25 +1,33 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import type { User } from "@supabase/supabase-js";
 import type { Database } from "./types";
+
+export type UpdateSessionResult = {
+  supabaseResponse: NextResponse;
+  user: User | null;
+};
 
 /**
  * Middleware de Supabase SSR — refresca la sesión en cada request.
  * Se usa desde /middleware.ts del proyecto.
  *
  * Retorna la respuesta con las cookies de sesión actualizadas.
+ * @throws Si faltan las variables de entorno de Supabase.
  */
-export async function updateSession(request: NextRequest) {
-  let supabaseResponse = NextResponse.next({ request });
-
+export async function updateSession(
+  request: NextRequest
+): Promise<UpdateSessionResult> {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
   if (!supabaseUrl || !supabaseAnonKey) {
-    console.warn(
-      "[Supabase Middleware] Faltan variables de entorno. Saltando refresh de sesión."
+    throw new Error(
+      "[Supabase Middleware] Faltan NEXT_PUBLIC_SUPABASE_URL o NEXT_PUBLIC_SUPABASE_ANON_KEY"
     );
-    return supabaseResponse;
   }
+
+  let supabaseResponse = NextResponse.next({ request });
 
   const supabase = createServerClient<Database>(supabaseUrl, supabaseAnonKey, {
     cookies: {

@@ -23,9 +23,22 @@ export async function middleware(request: NextRequest) {
   let sessionResponse = NextResponse.next();
 
   if (isProtectedRoute) {
-    const result = await updateSession(request);
-    sessionUser = result.user;
-    sessionResponse = result.supabaseResponse;
+    try {
+      const result = await updateSession(request);
+      sessionUser = result.user;
+      sessionResponse = result.supabaseResponse;
+    } catch (e) {
+      console.error("[Middleware] Error al refrescar sesión:", e);
+      if (isApiRoute) {
+        return NextResponse.json(
+          { ok: false, error: "Error de autenticación." },
+          { status: 500 }
+        );
+      }
+      const url = request.nextUrl.clone();
+      url.pathname = "/";
+      return NextResponse.redirect(url);
+    }
   }
 
   // ─── 2. Verificar auth en rutas protegidas ──────────
