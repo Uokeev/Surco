@@ -21,7 +21,7 @@ ALTER TABLE public.users ENABLE ROW LEVEL SECURITY;
 
 -- RLS: cada usuario solo ve/edita su propio perfil
 CREATE POLICY "users_own" ON public.users
-  FOR ALL USING (auth.uid() = id);
+  FOR ALL USING (auth.uid()::text = id);
 
 -- Trigger: crear perfil automáticamente al registrarse
 CREATE OR REPLACE FUNCTION public.handle_new_user()
@@ -32,7 +32,7 @@ AS $$
 BEGIN
   INSERT INTO public.users (id, name, email, photo)
   VALUES (
-    NEW.id,
+    NEW.id::text,
     NEW.raw_user_meta_data ->> 'full_name',
     NEW.email,
     NEW.raw_user_meta_data ->> 'avatar_url'
@@ -79,7 +79,7 @@ ALTER TABLE public.diagnosticos ENABLE ROW LEVEL SECURITY;
 
 -- RLS: usuarios ven solo sus propios diagnósticos
 CREATE POLICY "diagnosticos_own" ON public.diagnosticos
-  FOR ALL USING (auth.uid() = user_id);
+  FOR ALL USING (auth.uid()::text = user_id);
 
 -- RLS: admins/analistas pueden leer agregados (opcional)
 -- CREATE POLICY "diagnosticos_admin_read" ON public.diagnosticos
