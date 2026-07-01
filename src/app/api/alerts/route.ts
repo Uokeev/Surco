@@ -3,7 +3,7 @@ import { getAuthenticatedUser, createSupabaseServerClient } from "@/lib/supabase
 import type { ApiResponse, AlertaZona } from "@/types";
 
 export async function GET(
-  request: NextRequest
+  _request: NextRequest
 ): Promise<NextResponse<ApiResponse<AlertaZona[]>>> {
   try {
     const user = await getAuthenticatedUser();
