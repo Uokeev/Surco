@@ -9,6 +9,8 @@ import { DiagnosisResult } from "@/components/Diagnosis/DiagnosisResult";
 import { useWeather } from "@/hooks/useWeather";
 import { useDiagnosis } from "@/hooks/useDiagnosis";
 import { useToastHelpers } from "@/components/ui/Toast";
+import { PlantIdentifier, PlantIdentificationBadge } from "@/components/Plantas/PlantIdentifier";
+import type { PlantPrediction } from "@/hooks/usePlantIdentifier";
 import type { DiagnosticoResult, UsoTipo } from "@/types";
 import { CULTIVOS_POR_CATEGORIA, REGIONES } from "@/lib/constants";
 
@@ -30,9 +32,51 @@ export default function CameraPage() {
   const [view, setView] = useState<"form" | "analyzing" | "result">("form");
   const [lastResult, setLastResult] = useState<DiagnosticoResult | null>(null);
 
-  const toast = useToastHelpers();
+  // ─── Identificación de plantas con TM ──────────────
+  const [plantPrediction, setPlantPrediction] = useState<PlantPrediction | null>(null);
+  const [tmCompleted, setTmCompleted] = useState(false);
+  const imgRef = useRef<HTMLImageElement | null>(null);
+  const [imgElement, setImgElement] = useState<HTMLImageElement | null>(null);
 
+  // Cuando la imagen cambia, crear un elemento img para TM
   const previewImage = imageBase64 ? `data:${imageMime};base64,${imageBase64}` : null;
+
+  useEffect(() => {
+    setTmCompleted(false);
+    if (!previewImage) {
+      setPlantPrediction(null);
+      setImgElement(null);
+      return;
+    }
+
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.onload = () => {
+      setImgElement(img);
+    };
+    img.src = previewImage;
+  }, [previewImage]);
+
+  const handleTMIdentified = useCallback((prediction: PlantPrediction) => {
+    setPlantPrediction(prediction);
+
+    // Auto-seleccionar el cultivo si la confianza es alta
+    if (prediction.probability > 0.6) {
+      setCrop(prediction.cropName);
+      // También cambiar a uso hogar para plantas de interior
+      setUsoTipo("hogar");
+    }
+  }, []);
+
+  const handleTMComplete = useCallback(() => {
+    setTmCompleted(true);
+  }, []);
+
+  const handleTMClear = useCallback(() => {
+    setPlantPrediction(null);
+  }, []);
+
+  const toast = useToastHelpers();
 
   // Redirigir si no hay sesión
   useEffect(() => {
@@ -103,6 +147,8 @@ export default function CameraPage() {
 
   const handleClearImage = useCallback(() => {
     setImageBase64(null);
+    setPlantPrediction(null);
+    setImgElement(null);
   }, []);
 
   const handleAnalyze = useCallback(async () => {
@@ -138,6 +184,8 @@ export default function CameraPage() {
     reset();
     setImageBase64(null);
     setLastResult(null);
+    setPlantPrediction(null);
+    setImgElement(null);
     setView("form");
     setCrop("");
     setRegion("");
@@ -280,6 +328,27 @@ export default function CameraPage() {
 
         {/* Imagen */}
         <ImageUpload onImageReady={handleImageReady} onClear={handleClearImage} />
+
+        {/* Identificación automática de planta con Teachable Machine */}
+        {previewImage && (
+          <>
+            <PlantIdentifier
+              sourceElement={imgElement}
+              onIdentified={handleTMIdentified}
+              onComplete={handleTMComplete}
+            />
+            {!plantPrediction && imgElement && !tmCompleted && (
+              <div className="flex items-center gap-2 text-xs text-gray-400 py-1">
+                <span className="w-3 h-3 border-2 border-gray-300 border-t-gray-600 rounded-full animate-spin" />
+                Identificando planta...
+              </div>
+            )}
+            <PlantIdentificationBadge
+              prediction={plantPrediction}
+              onClear={handleTMClear}
+            />
+          </>
+        )}
 
         {/* Contexto del cultivo */}
         <div className="card p-5">
