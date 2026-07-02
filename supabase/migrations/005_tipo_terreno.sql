@@ -42,7 +42,7 @@ SELECT
   COALESCE(r.racha_maxima, 0) AS racha_maxima,
   (SELECT COUNT(*) FROM diagnosticos d WHERE d.user_id = u.id) AS total_diagnosticos,
   (SELECT COUNT(*) FROM referidos_usuario rf WHERE rf.usuario_id = u.id::uuid) AS total_referidos,
-  (SELECT COALESCE(SUM(s.cantidad), 0) FROM semillas_usuario s WHERE s.user_id = u.id::uuid) AS semillas_totales,
+  u.semillas_acumuladas AS semillas_totales,
   -- Verificar si cumple Oro
   CASE WHEN
     (u.rut_verificado = TRUE OR u.telefono_verificado = TRUE)

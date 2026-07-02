@@ -124,12 +124,15 @@ export default function BeneficiosPage() {
           Canjea tus semillas por productos y descuentos reales
         </p>
 
-        {/* Puntos totales */}
+        {/* Puntaje total (semillas acumuladas) */}
         {resumen && (
           <div className="mt-4 bg-white/10 backdrop-blur-sm rounded-xl p-4 flex items-center justify-between">
             <div>
-              <p className="text-xs text-white/60">Tus semillas</p>
-              <p className="text-2xl font-bold text-white">{resumen.semillas_totales}</p>
+              <p className="text-xs text-white/60">Tu puntaje</p>
+              <p className="text-2xl font-bold text-white">🌱 {resumen.semillas_totales}</p>
+              <p className="text-[10px] text-white/40 mt-0.5">
+                Semillas: {resumen.semillas_totales} pts
+              </p>
             </div>
             <div className="text-right">
               <p className="text-xs text-white/60">Nivel</p>
