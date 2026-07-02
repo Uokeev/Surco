@@ -6,9 +6,11 @@ import {
   useEffect,
   useState,
   useCallback,
+  useRef,
   type ReactNode,
 } from "react";
-import type { User } from "@supabase/supabase-js";
+import type { SupabaseClient, User } from "@supabase/supabase-js";
+import type { Database } from "@/lib/supabase/types";
 import { getSupabaseClient } from "@/lib/supabase/client";
 
 interface AuthState {
@@ -24,15 +26,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const supabase = getSupabaseClient();
+  // ⚠️ Cliente Supabase lazy: se crea en el primer uso real (useEffect),
+  //    NO durante SSR/SSG. Así evitamos que el build explote si faltan
+  //    las variables de entorno en tiempo de build.
+  const supabaseRef = useRef<SupabaseClient<Database> | null>(null);
+  const getClient = useCallback((): SupabaseClient<Database> => {
+    if (!supabaseRef.current) {
+      supabaseRef.current = getSupabaseClient();
+    }
+    return supabaseRef.current;
+  }, []);
 
   useEffect(() => {
+    const supabase = getClient();
     // Obtener sesión inicial
     supabase.auth.getUser().then(({ data: { user: u } }) => {
       setUser(u);
       setLoading(false);
       if (u) {
-        inicializarUsuario(u.id);
+        inicializarUsuario();
       }
     });
 
@@ -43,17 +55,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(session?.user ?? null);
       setLoading(false);
       if (event === "SIGNED_IN" && session?.user) {
-        inicializarUsuario(session.user.id);
+        inicializarUsuario();
       }
     });
 
     return () => {
       subscription.unsubscribe();
     };
-  }, [supabase]);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   /** Inicializa perfil del usuario (fire-and-forget, no bloquea el login). */
-  const inicializarUsuario = useCallback(async (userId: string) => {
+  const inicializarUsuario = useCallback(async () => {
     try {
       await fetch("/api/club/init", { method: "POST" });
     } catch {
@@ -63,6 +75,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signInWithGoogle = useCallback(async () => {
     const origin = window.location.origin;
+    const supabase = getClient();
     await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
@@ -73,12 +86,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         },
       },
     });
-  }, [supabase]);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const signOut = useCallback(async () => {
+    const supabase = getClient();
     await supabase.auth.signOut();
     setUser(null);
-  }, [supabase]);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <AuthContext.Provider value={{ user, loading, signInWithGoogle, signOut }}>
