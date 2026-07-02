@@ -420,6 +420,103 @@ export interface Database {
         };
         Relationships: [];
       };
+      catalogo_plantas: {
+        Row: {
+          id: string;
+          nombre: string;
+          nombre_cientifico: string;
+          origen: string;
+          luz: string;
+          luz_fc_min: number;
+          luz_fc_max: number;
+          riego_trigger: string;
+          riego_profundidad_cm: number;
+          humedad_min: number;
+          humedad_optima_min: number;
+          humedad_optima_max: number;
+          temp_min: number;
+          temp_optima_min: number;
+          temp_optima_max: number;
+          toxicidad: string;
+          dificultad: string;
+          crecimiento: string;
+          descripcion_corta: string;
+          descripcion_larga: string;
+          consejos_clave: string[];
+          problemas_comunes: string;
+          diferenciador: string;
+          propagacion_metodo: string;
+          propagacion_detalle: string;
+          propagacion_tiempo_raiz: string;
+          propagacion_dificultad: string;
+          activo: boolean;
+          imagen_url: string | null;
+          created_at: string;
+        };
+        Insert: Record<string, never>;
+        Update: Record<string, never>;
+        Relationships: [];
+      };
+      plagas_enfermedades: {
+        Row: {
+          id: string;
+          nombre: string;
+          nombre_cientifico: string;
+          tipo: string;
+          sintomas: string;
+          causa: string;
+          identificacion: string;
+          factor_critico: string;
+          primeros_auxilios: string;
+          tratamiento_principal: string;
+          tratamiento_frecuencia: string;
+          preventivo: string;
+          activo: boolean;
+          created_at: string;
+        };
+        Insert: Record<string, never>;
+        Update: Record<string, never>;
+        Relationships: [];
+      };
+      plagas_por_planta: {
+        Row: {
+          id: string;
+          planta_id: string;
+          plaga_id: string;
+        };
+        Insert: Record<string, never>;
+        Update: Record<string, never>;
+        Relationships: [
+          {
+            foreignKeyName: "plagas_por_planta_planta_id_fkey";
+            columns: ["planta_id"];
+            isOneToOne: false;
+            referencedRelation: "catalogo_plantas";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "plagas_por_planta_plaga_id_fkey";
+            columns: ["plaga_id"];
+            isOneToOne: false;
+            referencedRelation: "plagas_enfermedades";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      alertas_temporada: {
+        Row: {
+          id: string;
+          temporada: string;
+          titulo: string;
+          mensaje: string;
+          acciones: string[];
+          activo: boolean;
+          created_at: string;
+        };
+        Insert: Record<string, never>;
+        Update: Record<string, never>;
+        Relationships: [];
+      };
     };
     Views: {
       resumen_club_surco: {
@@ -524,6 +621,19 @@ export interface Database {
           p_beneficio_id: string;
         };
         Returns: Record<string, unknown>;
+      };
+      obtener_plagas_por_planta: {
+        Args: {
+          p_nombre_planta: string;
+        };
+        Returns: Array<{
+          plaga_id: string;
+          plaga_nombre: string;
+          plaga_tipo: string;
+          sintomas: string;
+          tratamiento_principal: string;
+          frecuencia: string;
+        }>;
       };
     };
     Enums: Record<string, never>;
