@@ -69,7 +69,19 @@ export function ImageUpload({ onImageReady, onClear }: ImageUploadProps) {
             className="hidden"
           />
           <div className="text-5xl mb-3">
-            {compressing ? "⏳" : "📷"}
+            {compressing ? (
+              <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="inline-block">
+                <path d="M5 22h14"/>
+                <path d="M5 2h14"/>
+                <path d="M17 22v-4.17a2 2 0 0 0-.59-1.42L12 12l-4.41 4.41A2 2 0 0 0 7 17.83V22"/>
+                <path d="M7 2v4.17a2 2 0 0 0 .59 1.42L12 12l4.41-4.41A2 2 0 0 0 17 6.17V2"/>
+              </svg>
+            ) : (
+              <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="inline-block">
+                <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+                <circle cx="12" cy="13" r="4"/>
+              </svg>
+            )}
           </div>
           <div className="text-base font-semibold text-forest-800 mb-1">
             {compressing ? "Comprimiendo imagen..." : "Fotografiar planta"}
@@ -94,7 +106,11 @@ export function ImageUpload({ onImageReady, onClear }: ImageUploadProps) {
             onClick={handleClear}
             className="absolute top-2 left-2 bg-black/50 hover:bg-black/60 text-white rounded-lg px-3 py-1 text-sm font-medium transition-colors"
           >
-            ↩ Cambiar
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="inline-block -mt-0.5 mr-1">
+              <polyline points="1 4 1 10 7 10"/>
+              <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/>
+            </svg>
+            Cambiar
           </button>
           {fileName && (
             <div className="absolute bottom-2 left-2 right-2 bg-black/40 backdrop-blur-sm rounded-lg px-3 py-1.5 text-xs text-white/80 truncate">

@@ -84,7 +84,12 @@ export default function DiagnosticoDetailPage() {
   if (error || !diagnostico) {
     return (
       <div className="flex-1 flex flex-col items-center justify-center px-6 bg-gray-100">
-        <div className="text-4xl mb-4">🔍</div>
+        <div className="text-4xl mb-4">
+            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="11" cy="11" r="8"/>
+              <path d="m21 21-4.3-4.3"/>
+            </svg>
+          </div>
         <p className="text-gray-600 text-center mb-6">{error ?? "Diagnóstico no encontrado."}</p>
         <button
           type="button"

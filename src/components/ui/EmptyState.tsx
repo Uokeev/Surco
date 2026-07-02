@@ -18,7 +18,7 @@ interface EmptyStateProps {
  *   />
  */
 export function EmptyState({
-  emoji = "📭",
+  emoji = "",
   title,
   description,
   action,

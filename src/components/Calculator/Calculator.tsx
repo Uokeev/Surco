@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, type ReactNode } from "react";
 
 interface CalculatorProps {
   tratamientos: string[];
@@ -32,10 +32,33 @@ export function Calculator({ tratamientos }: CalculatorProps) {
 
   const m2Preview = largo > 0 && ancho > 0 ? largo * ancho : null;
 
-  const tabs: { id: CalcTab; label: string; icon: string }[] = [
-    { id: "arbol", label: "Un árbol", icon: "🌳" },
-    { id: "huerto", label: "Mi huerto", icon: "🪴" },
-    { id: "predio", label: "Predio / ha", icon: "🌾" },
+  const tabs: { id: CalcTab; label: string; icon: ReactNode }[] = [
+    { id: "arbol", label: "Un árbol", icon: (
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M12 22V8"/>
+        <path d="M6 14c-3 0-5-2-5-5s2-5 5-5c.5 0 1 0 1.5.2C9 1 11.5 0 14 0c2.5 0 4.5 1 5.5 3.5 2 .3 4.5 1.5 4.5 4.5 0 3-2 5-5 5"/>
+        <path d="M12 22l-4-4"/>
+        <path d="M12 22l4-4"/>
+      </svg>
+    ) },
+    { id: "huerto", label: "Mi huerto", icon: (
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M12 2v8"/>
+        <path d="M9 4c-2 0-4 2-4 4 0 2 1 3 3 4"/>
+        <path d="M15 4c2 0 4 2 4 4 0 2-1 3-3 4"/>
+        <path d="M8 16h8"/>
+        <path d="M10 22h4"/>
+        <path d="M12 16v6"/>
+      </svg>
+    ) },
+    { id: "predio", label: "Predio / ha", icon: (
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M12 22V10"/>
+        <path d="M12 10c-2 0-5-2-5-5 0 3 1 5 3 6"/>
+        <path d="M12 10c2 0 5-2 5-5 0 3-1 5-3 6"/>
+        <path d="M9 14c2 1 4 1 6 0"/>
+      </svg>
+    ) },
   ];
 
   const calcularDosis = useCallback(() => {
@@ -133,7 +156,7 @@ export function Calculator({ tratamientos }: CalculatorProps) {
   return (
     <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm">
       <h3 className="text-sm font-bold text-gray-900 mb-1">
-        ⚗️ Calculadora de dosis
+        Calculadora de dosis
       </h3>
       <p className="text-xs text-gray-500 mb-4">
         ¿Cuánto necesitas? Elige tu situación:
@@ -241,7 +264,7 @@ export function Calculator({ tratamientos }: CalculatorProps) {
           </div>
           {m2Preview && (
             <div className="bg-forest-50 rounded-lg px-3 py-2 text-sm text-forest-800 font-medium">
-              📐 Tu huerto tiene {m2Preview.toFixed(1)} m² ({largo}m × {ancho}
+              Tu huerto tiene {m2Preview.toFixed(1)} m² ({largo}m × {ancho}
               m)
             </div>
           )}
@@ -353,7 +376,12 @@ export function Calculator({ tratamientos }: CalculatorProps) {
             ))}
           </div>
           <p className="text-xs text-gray-500 mt-3 leading-relaxed">
-            ⚠️ Siempre verifica la dosis en la etiqueta del producto. No
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="inline-block -mt-0.5 mr-1">
+              <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+              <line x1="12" y1="9" x2="12" y2="13"/>
+              <line x1="12" y1="17" x2="12.01" y2="17"/>
+            </svg>
+            Siempre verifica la dosis en la etiqueta del producto. No
             mezclar productos sin consultar.
           </p>
         </div>

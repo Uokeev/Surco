@@ -123,11 +123,25 @@ export default function PlanesPage() {
               <span
                 className={`text-3xl ${plan.destacado ? "opacity-100" : "opacity-40"}`}
               >
-                {plan.id === "gratuito"
-                  ? "🌱"
-                  : plan.id === "pro"
-                    ? "🌿"
-                    : "🌳"}
+                {plan.id === "gratuito" ? (
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M12 22V8"/>
+                    <path d="M12 8c-2.5 0-5-2-5-5 0 3 1 5 5 6"/>
+                    <path d="M12 8c2.5 0 5-2 5-5 0 3-1 5-5 6"/>
+                  </svg>
+                ) : plan.id === "pro" ? (
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M11 20A7 7 0 0 1 9.8 6.9C15.5 4.9 17 3.5 19 2c1 2 2 4.5 2 8 0 5.5-4.78 10-10 10Z"/>
+                    <path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12"/>
+                  </svg>
+                ) : (
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M12 22V8"/>
+                    <path d="M6 14c-3 0-5-2-5-5s2-5 5-5c.5 0 1 0 1.5.2C9 1 11.5 0 14 0c2.5 0 4.5 1 5.5 3.5 2 .3 4.5 1.5 4.5 4.5 0 3-2 5-5 5"/>
+                    <path d="M12 22l-4-4"/>
+                    <path d="M12 22l4-4"/>
+                  </svg>
+                )}
               </span>
             </div>
 
