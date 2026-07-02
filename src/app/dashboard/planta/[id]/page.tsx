@@ -15,8 +15,14 @@ export default function PlantaDetallePage() {
   useEffect(() => {
     if (params?.id && !loaded) {
       const nombre = decodeURIComponent(params.id);
-      fetchPlanta(nombre);
+      let cancelled = false;
+      fetchPlanta(nombre).then(() => {
+        if (cancelled) return;
+      });
       setLoaded(true);
+      return () => {
+        cancelled = true;
+      };
     }
   }, [params?.id, fetchPlanta, loaded]);
 

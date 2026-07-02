@@ -15,7 +15,9 @@ export default function DashboardPage() {
   const { weather, loading: weatherLoading, requestLocation } = useWeather();
   const [historial, setHistorial] = useState<Diagnostico[]>([]);
   const [historialLoading, setHistorialLoading] = useState(true);
+  const [historialError, setHistorialError] = useState<string | null>(null);
   const [alertas, setAlertas] = useState<AlertaZona[]>([]);
+  const [alertasError, setAlertasError] = useState<string | null>(null);
 
   const userName = user?.user_metadata?.full_name as string | undefined;
   const userPhoto = user?.user_metadata?.avatar_url as string | undefined;
@@ -24,6 +26,7 @@ export default function DashboardPage() {
   // Cargar historial
   const loadHistory = useCallback(async () => {
     if (!user) return;
+    setHistorialError(null);
     try {
       const supabase = getSupabaseClient();
       const { data, error } = await supabase
@@ -36,7 +39,8 @@ export default function DashboardPage() {
       if (error) throw error;
       setHistorial((data ?? []) as unknown as Diagnostico[]);
     } catch (e) {
-      console.warn("Error cargando historial:", e);
+      const msg = e instanceof Error ? e.message : "Error al cargar historial";
+      setHistorialError(msg);
     } finally {
       setHistorialLoading(false);
     }
@@ -44,6 +48,7 @@ export default function DashboardPage() {
 
   // Cargar alertas
   const loadAlertas = useCallback(async () => {
+    setAlertasError(null);
     try {
       const supabase = getSupabaseClient();
       const session = await supabase.auth.getSession();
@@ -55,9 +60,12 @@ export default function DashboardPage() {
       const data = await res.json();
       if (data.ok && data.data) {
         setAlertas(data.data as unknown as AlertaZona[]);
+      } else {
+        throw new Error(data.error ?? "Error al cargar alertas");
       }
     } catch (e) {
-      console.warn("Error cargando alertas:", e);
+      const msg = e instanceof Error ? e.message : "Error al cargar alertas";
+      setAlertasError(msg);
     }
   }, []);
 
@@ -66,10 +74,18 @@ export default function DashboardPage() {
       router.replace("/");
       return;
     }
+    let cancelled = false;
     if (user) {
-      loadHistory();
-      loadAlertas();
+      loadHistory().then(() => {
+        if (cancelled) return;
+      });
+      loadAlertas().then(() => {
+        if (cancelled) return;
+      });
     }
+    return () => {
+      cancelled = true;
+    };
   }, [user, loading, router, loadHistory, loadAlertas]);
 
   if (loading || !user) {
@@ -208,7 +224,16 @@ export default function DashboardPage() {
         </div>
 
         {/* Alertas de zona */}
-        {alertas.length > 0 && (
+        {alertasError && (
+          <section>
+            <h2 className="sec-label">Alertas en tu zona</h2>
+            <div className="card p-4 border-red-200 bg-red-50" role="alert">
+              <p className="text-sm text-red-700 font-medium">Error al cargar alertas</p>
+              <p className="text-xs text-red-600 mt-1">{alertasError}</p>
+            </div>
+          </section>
+        )}
+        {!alertasError && alertas.length > 0 && (
           <section>
             <h2 className="sec-label">Alertas en tu zona</h2>
             <div className="space-y-2">
@@ -263,6 +288,11 @@ export default function DashboardPage() {
             <div className="card p-8 text-center">
               <div className="w-6 h-6 border-2 border-forest-600 border-t-transparent rounded-full animate-spin mx-auto mb-2" />
               <p className="text-sm text-gray-500">Cargando historial...</p>
+            </div>
+          ) : historialError ? (
+            <div className="card p-4 border-red-200 bg-red-50" role="alert">
+              <p className="text-sm text-red-700 font-medium">Error al cargar historial</p>
+              <p className="text-xs text-red-600 mt-1">{historialError}</p>
             </div>
           ) : historial.length === 0 ? (
             <EmptyState

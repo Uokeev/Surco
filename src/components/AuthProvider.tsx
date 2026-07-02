@@ -40,13 +40,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const supabase = getClient();
     // Obtener sesión inicial
-    supabase.auth.getUser().then(({ data: { user: u } }) => {
-      setUser(u);
-      setLoading(false);
-      if (u) {
-        inicializarUsuario();
-      }
-    });
+    supabase.auth.getUser()
+      .then(({ data: { user: u } }) => {
+        setUser(u);
+        if (u) {
+          inicializarUsuario();
+        }
+      })
+      .catch((err) => {
+        console.error("[Auth] Error al obtener sesión:", err);
+        setUser(null);
+      })
+      .finally(() => {
+        setLoading(false);
+      });
 
     // Escuchar cambios de auth
     const {

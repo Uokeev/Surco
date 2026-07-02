@@ -29,7 +29,13 @@ export default function CatalogoPlantasPage() {
   const [filtroLuz, setFiltroLuz] = useState("todas");
 
   useEffect(() => {
-    fetchPlantas();
+    let cancelled = false;
+    fetchPlantas().then(() => {
+      if (cancelled) return;
+    });
+    return () => {
+      cancelled = true;
+    };
   }, [fetchPlantas]);
 
   const plantasFiltradas = useMemo(() => {

@@ -107,7 +107,14 @@ export function DiagnosisResult({
             {result.confianza || 0}%
           </span>
         </div>
-        <div className="w-full h-2 bg-gray-100 rounded-full overflow-hidden">
+        <div
+          className="w-full h-2 bg-gray-100 rounded-full overflow-hidden"
+          role="progressbar"
+          aria-valuenow={result.confianza || 0}
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-label={`${result.confianza || 0}% de confianza`}
+        >
           <div
             className="h-full bg-gradient-to-r from-forest-500 to-forest-700 rounded-full transition-all duration-1000 ease-out"
             style={{ width: `${result.confianza || 0}%` }}
@@ -118,7 +125,7 @@ export function DiagnosisResult({
       {/* Cuándo actuar */}
       {result.cuando_actuar && (
         <div className="bg-warm-50 border border-warm-200 rounded-xl p-4 flex items-start gap-3">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 mt-0.5">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 mt-0.5" aria-hidden="true">
             <circle cx="12" cy="12" r="10"/>
             <polyline points="12 6 12 12 16 14"/>
           </svg>
@@ -161,10 +168,13 @@ export function DiagnosisResult({
               ← Anterior
             </button>
 
-            <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-1.5" role="tablist" aria-label="Progreso de pasos">
               {pasos.map((_, i) => (
                 <div
                   key={i}
+                  role="tab"
+                  aria-selected={i === currentStep}
+                  aria-label={`Paso ${i + 1}`}
                   className={`w-2 h-2 rounded-full transition-colors ${
                     i === currentStep ? "bg-forest-800" : "bg-gray-200"
                   }`}
@@ -191,7 +201,7 @@ export function DiagnosisResult({
       {pasos.length > 0 && (
         <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm">
           <h3 className="text-sm font-bold text-gray-900 mb-3">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="inline-block -mt-0.5 mr-1">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="inline-block -mt-0.5 mr-1" aria-hidden="true">
               <circle cx="9" cy="21" r="1"/>
               <circle cx="20" cy="21" r="1"/>
               <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/>
@@ -226,7 +236,7 @@ export function DiagnosisResult({
                       rel="noopener noreferrer"
                       className="inline-flex items-center gap-1.5 bg-[#fff159] text-gray-800 rounded-lg px-3 py-1.5 text-xs font-semibold hover:brightness-95 transition-all"
                     >
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="inline-block -mt-0.5">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="inline-block -mt-0.5" aria-hidden="true">
                         <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/>
                         <line x1="3" y1="6" x2="21" y2="6"/>
                         <path d="M16 10a4 4 0 0 1-8 0"/>
@@ -239,7 +249,7 @@ export function DiagnosisResult({
                       rel="noopener noreferrer"
                       className="inline-flex items-center gap-1.5 bg-gray-100 text-gray-700 rounded-lg px-3 py-1.5 text-xs font-semibold hover:bg-gray-200 transition-all"
                     >
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="inline-block -mt-0.5">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="inline-block -mt-0.5" aria-hidden="true">
                         <circle cx="11" cy="11" r="8"/>
                         <path d="m21 21-4.3-4.3"/>
                       </svg>
@@ -251,7 +261,7 @@ export function DiagnosisResult({
                       rel="noopener noreferrer"
                       className="inline-flex items-center gap-1.5 bg-forest-50 text-forest-800 rounded-lg px-3 py-1.5 text-xs font-semibold hover:bg-forest-100 transition-all"
                     >
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="inline-block -mt-0.5">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="inline-block -mt-0.5" aria-hidden="true">
                         <path d="M12 22V8"/>
                         <path d="M12 8c-2.5 0-5-2-5-5 0 3 1 5 5 6"/>
                         <path d="M12 8c2.5 0 5-2 5-5 0 3-1 5-5 6"/>
@@ -273,7 +283,7 @@ export function DiagnosisResult({
         rel="noopener noreferrer"
         className="block w-full bg-forest-800 text-white rounded-xl py-3.5 px-5 text-sm font-semibold text-center hover:bg-forest-700 transition-colors"
       >
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="inline-block -mt-0.5 mr-1">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="inline-block -mt-0.5 mr-1" aria-hidden="true">
           <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
           <circle cx="12" cy="10" r="3"/>
         </svg>
@@ -283,7 +293,7 @@ export function DiagnosisResult({
       {/* Alerta propagación */}
       {result.alerta_propagacion && (
         <div className="bg-warm-50 border border-warm-200 rounded-xl p-4 flex items-start gap-3">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 mt-0.5">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 mt-0.5" aria-hidden="true">
             <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
             <line x1="12" y1="9" x2="12" y2="13"/>
             <line x1="12" y1="17" x2="12.01" y2="17"/>
@@ -297,7 +307,7 @@ export function DiagnosisResult({
       {/* Clima al diagnóstico */}
       {weather && (
         <div className="bg-forest-50 border border-forest-200 rounded-xl p-4 flex items-start gap-3">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 mt-0.5">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 mt-0.5" aria-hidden="true">
             <path d="M14 14.76V3.5a2.5 2.5 0 0 0-5 0v11.26a4.5 4.5 0 1 0 5 0z"/>
           </svg>
           <div className="text-sm text-gray-700">

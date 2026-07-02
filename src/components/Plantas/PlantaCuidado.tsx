@@ -35,12 +35,18 @@ const TOXICIDAD_LABEL: Record<string, string> = {
 };
 
 export function PlantaCuidado({ planta }: PlantaCuidadoProps) {
-  const { fetchPlagas, fetchAlertas, plagasActuales, alertas } = usePlantas();
+  const { fetchPlagas, fetchAlertas, plagasActuales, alertas, errorPlagas, errorAlertas } = usePlantas();
   const [showPlagas, setShowPlagas] = useState(false);
   const [loadingPlagas, setLoadingPlagas] = useState(false);
 
   useEffect(() => {
-    fetchAlertas();
+    let cancelled = false;
+    fetchAlertas().then(() => {
+      if (cancelled) return;
+    });
+    return () => {
+      cancelled = true;
+    };
   }, [fetchAlertas]);
 
   const handleLoadPlagas = async () => {
@@ -216,7 +222,14 @@ export function PlantaCuidado({ planta }: PlantaCuidadoProps) {
           <p className="text-sm text-gray-500">Cargando plagas...</p>
         )}
 
-        {showPlagas && !loadingPlagas && plagasActuales.length === 0 && (
+        {showPlagas && !loadingPlagas && errorPlagas && (
+          <div className="bg-red-50 border border-red-200 rounded-lg p-3" role="alert">
+            <p className="text-sm text-red-700 font-medium">⚠️ Error al cargar plagas</p>
+            <p className="text-xs text-red-600 mt-1">{errorPlagas}</p>
+          </div>
+        )}
+
+        {showPlagas && !loadingPlagas && !errorPlagas && plagasActuales.length === 0 && (
           <div className="bg-green-50 border border-green-200 rounded-lg p-3">
             <p className="text-sm text-green-700 font-medium">✅ No se encontraron plagas asociadas</p>
             <p className="text-xs text-green-600 mt-1">
@@ -262,7 +275,13 @@ export function PlantaCuidado({ planta }: PlantaCuidadoProps) {
       </div>
 
       {/* Alertas de temporada */}
-      {alertas.length > 0 && (
+      {errorAlertas && (
+        <div className="card p-4 border-red-200 bg-red-50/40" role="alert">
+          <h4 className="font-semibold text-sm text-gray-900 mb-1">📅 Alertas de temporada</h4>
+          <p className="text-xs text-red-600">{errorAlertas}</p>
+        </div>
+      )}
+      {!errorAlertas && alertas.length > 0 && (
         <div className="card p-4 border-warm-200 bg-warm-50/40">
           <h4 className="font-semibold text-sm text-gray-900 mb-3">📅 Alertas de temporada</h4>
           <div className="space-y-3">

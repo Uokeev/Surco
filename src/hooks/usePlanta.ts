@@ -16,6 +16,8 @@ interface UsePlantasReturn {
   plantaActual: CatalogoPlanta | null;
   plagasActuales: PlagaRelacionada[];
   loadingDetalle: boolean;
+  errorPlagas: string | null;
+  errorAlertas: string | null;
 }
 
 export function usePlantas(): UsePlantasReturn {
@@ -26,6 +28,8 @@ export function usePlantas(): UsePlantasReturn {
   const [loading, setLoading] = useState(false);
   const [loadingDetalle, setLoadingDetalle] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [errorPlagas, setErrorPlagas] = useState<string | null>(null);
+  const [errorAlertas, setErrorAlertas] = useState<string | null>(null);
 
   const fetchPlantas = useCallback(async () => {
     setLoading(true);
@@ -87,6 +91,7 @@ export function usePlantas(): UsePlantasReturn {
   }, []);
 
   const fetchPlagas = useCallback(async (nombrePlanta: string): Promise<PlagaRelacionada[]> => {
+    setErrorPlagas(null);
     try {
       const supabase = getSupabaseClient();
       const session = await supabase.auth.getSession();
@@ -110,12 +115,14 @@ export function usePlantas(): UsePlantasReturn {
       setPlagasActuales(data.data ?? []);
       return data.data ?? [];
     } catch (err) {
-      console.warn("Error fetching plagas:", err);
+      const message = err instanceof Error ? err.message : "Error desconocido";
+      setErrorPlagas(message);
       return [];
     }
   }, []);
 
   const fetchAlertas = useCallback(async (temporada?: string) => {
+    setErrorAlertas(null);
     try {
       const supabase = getSupabaseClient();
       const session = await supabase.auth.getSession();
@@ -137,7 +144,8 @@ export function usePlantas(): UsePlantasReturn {
 
       setAlertas(data.data ?? []);
     } catch (err) {
-      console.warn("Error fetching alertas:", err);
+      const message = err instanceof Error ? err.message : "Error desconocido";
+      setErrorAlertas(message);
     }
   }, []);
 
@@ -153,5 +161,7 @@ export function usePlantas(): UsePlantasReturn {
     plantaActual,
     plagasActuales,
     loadingDetalle,
+    errorPlagas,
+    errorAlertas,
   };
 }
