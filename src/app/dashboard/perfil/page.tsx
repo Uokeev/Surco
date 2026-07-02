@@ -6,26 +6,7 @@ import { useAuth } from "@/components/AuthProvider";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { useToastHelpers } from "@/components/ui/Toast";
 import type { ResumenClubSurco } from "@/types";
-
-const CULTIVOS = [
-  "Tomate", "Lechuga", "Papa", "Pepino", "Pimiento", "Zapallo",
-  "Brócoli / Repollo", "Manzana", "Peral", "Cerezo", "Duraznero",
-  "Ciruelo", "Palto / Aguacate", "Arándano", "Frutilla", "Nogal",
-  "Vid / Uva", "Naranjo / Limón", "Maíz", "Trigo",
-  "Planta ornamental", "Otro",
-];
-
-const REGIONES = [
-  "Región del Maule", "Región del Biobío", "Región de O'Higgins",
-  "Región de Valparaíso", "Región Metropolitana", "Región de La Araucanía",
-  "Región de Los Lagos", "Otra región",
-];
-
-const TIPOS_TERRENO = [
-  { value: "parcela", label: "Parcela", icon: "parcela", desc: "Terreno extenso para cultivo" },
-  { value: "huerto", label: "Huerto", icon: "huerto", desc: "Jardín o espacio pequeño de cultivo" },
-  { value: "invernadero", label: "Invernadero", icon: "invernadero", desc: "Estructura techada para cultivo controlado" },
-] as const;
+import { CULTIVOS_POR_CATEGORIA, REGIONES, TIPOS_TERRENO } from "@/lib/constants";
 
 // Condiciones para Nivel Oro
 const ORO_REQUISITOS = [
@@ -447,7 +428,7 @@ toast.success("Datos del terreno actualizados.");
                     className="select-field"
                   >
                     <option value="">— Seleccionar —</option>
-                    {CULTIVOS.map((c) => (
+                    {Object.values(CULTIVOS_POR_CATEGORIA).flat().map((c) => (
                       <option key={c} value={c}>{c}</option>
                     ))}
                   </select>

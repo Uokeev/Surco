@@ -10,20 +10,7 @@ import { useWeather } from "@/hooks/useWeather";
 import { useDiagnosis } from "@/hooks/useDiagnosis";
 import { useToastHelpers } from "@/components/ui/Toast";
 import type { DiagnosticoResult, UsoTipo } from "@/types";
-
-const CULTIVOS = [
-  "Tomate", "Lechuga", "Papa", "Pepino", "Pimiento", "Zapallo",
-  "Brócoli / Repollo", "Manzana", "Peral", "Cerezo", "Duraznero",
-  "Ciruelo", "Palto / Aguacate", "Arándano", "Frutilla", "Nogal",
-  "Vid / Uva", "Naranjo / Limón", "Maíz", "Trigo",
-  "Planta ornamental", "Otro",
-];
-
-const REGIONES = [
-  "Región del Maule", "Región del Biobío", "Región de O'Higgins",
-  "Región de Valparaíso", "Región Metropolitana", "Región de La Araucanía",
-  "Región de Los Lagos", "Otra región",
-];
+import { CULTIVOS_POR_CATEGORIA, REGIONES } from "@/lib/constants";
 
 export default function CameraPage() {
   const { user, loading: authLoading } = useAuth();
@@ -312,10 +299,14 @@ export default function CameraPage() {
                 className="select-field"
               >
                 <option value="">— Seleccionar —</option>
-                {CULTIVOS.map((c) => (
-                  <option key={c} value={c}>
-                    {c}
-                  </option>
+                {Object.entries(CULTIVOS_POR_CATEGORIA).map(([categoria, cultivos]) => (
+                  <optgroup key={categoria} label={categoria}>
+                    {cultivos.map((c) => (
+                      <option key={c} value={c}>
+                        {c}
+                      </option>
+                    ))}
+                  </optgroup>
                 ))}
               </select>
             </div>
