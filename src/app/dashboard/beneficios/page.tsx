@@ -8,11 +8,11 @@ import { useToastHelpers } from "@/components/ui/Toast";
 import type { CatalogoBeneficio, CanjeUsuario, ResumenClubSurco } from "@/types";
 import { EmptyState } from "@/components/ui/EmptyState";
 
-const CATEGORIAS: Record<string, { label: string; emoji: string; color: string }> = {
-  quimicos: { label: "Agroquímicos", emoji: "🧪", color: "border-l-amber-500" },
-  educacion: { label: "Educación", emoji: "📚", color: "border-l-blue-500" },
-  herramientas: { label: "Herramientas", emoji: "🔧", color: "border-l-green-500" },
-  descuentos: { label: "Descuentos", emoji: "🏷️", color: "border-l-purple-500" },
+const CATEGORIAS: Record<string, { label: string; icon: string; color: string }> = {
+  quimicos: { label: "Agroquímicos", icon: "quimicos", color: "border-l-amber-500" },
+  educacion: { label: "Educación", icon: "educacion", color: "border-l-blue-500" },
+  herramientas: { label: "Herramientas", icon: "herramientas", color: "border-l-green-500" },
+  descuentos: { label: "Descuentos", icon: "descuentos", color: "border-l-purple-500" },
 };
 
 export default function BeneficiosPage() {
@@ -109,7 +109,7 @@ export default function BeneficiosPage() {
       }
 
       toast.success(
-        `✅ Canje exitoso: ${result.item} (código: ${result.codigo_canje}). ` +
+        `Canje exitoso: ${result.item} (código: ${result.codigo_canje}). ` +
         `Te contactará ${result.partner}.`
       );
       loadData(); // Recargar
@@ -148,7 +148,7 @@ export default function BeneficiosPage() {
           <div className="mt-4 bg-white/10 backdrop-blur-sm rounded-xl p-4 flex items-center justify-between">
             <div>
               <p className="text-xs text-white/60">Tu puntaje</p>
-              <p className="text-2xl font-bold text-white">🌱 {resumen.semillas_totales}</p>
+              <p className="text-2xl font-bold text-white">{resumen.semillas_totales}</p>
               <p className="text-[10px] text-white/40 mt-0.5">
                 Semillas: {resumen.semillas_totales} pts
               </p>
@@ -193,7 +193,7 @@ export default function BeneficiosPage() {
                       : "bg-white text-gray-600 border border-gray-200"
                   }`}
                 >
-                  {cat.emoji} {cat.label}
+                  {cat.label}
                 </button>
               ))}
             </div>
@@ -201,13 +201,13 @@ export default function BeneficiosPage() {
             {/* Lista de beneficios */}
             {catalogoFiltrado.length === 0 ? (
               <EmptyState
-                emoji="🎁"
+                emoji=""
                 title="No hay beneficios disponibles"
                 description="No encontramos beneficios en esta categoría."
               />
             ) : (
               catalogoFiltrado.map((beneficio) => {
-                const cat = CATEGORIAS[beneficio.categoria] ?? { label: "", emoji: "", color: "border-l-gray-500" };
+                const cat = CATEGORIAS[beneficio.categoria] ?? { label: "", icon: "", color: "border-l-gray-500" };
                 const puedeCanjear = (resumen?.semillas_totales ?? 0) >= beneficio.costo_puntos;
                 return (
                   <div
@@ -219,7 +219,7 @@ export default function BeneficiosPage() {
                     <div className="flex items-start justify-between mb-2">
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-1">
-                          <span className="text-lg">{cat.emoji}</span>
+                          <span className="w-6 h-6 rounded-full bg-forest-100 text-forest-700 text-xs font-bold flex items-center justify-center">{cat.label[0]}</span>
                           <span className="text-xs font-medium text-gray-400 uppercase tracking-wider">
                             {beneficio.partner}
                           </span>
@@ -237,11 +237,14 @@ export default function BeneficiosPage() {
 
                     <div className="flex items-center justify-between mt-3 pt-3 border-t border-gray-100">
                       <div className="flex items-center gap-1.5">
-                        <span className="text-sm">🌱</span>
+                        <svg className="w-4 h-4 text-forest-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M12 2a8 8 0 0 0-8 8c0 4 4 6 8 12 4-6 8-8 8-12a8 8 0 0 0-8-8z"/>
+                          <circle cx="12" cy="10" r="2" fill="currentColor"/>
+                        </svg>
                         <span className="text-sm font-bold text-forest-800">
                           {beneficio.costo_puntos}
                         </span>
-                        <span className="text-xs text-gray-500">semillas</span>
+                        <span className="text-xs text-gray-500">pts</span>
                       </div>
 
                       <button
@@ -273,7 +276,7 @@ export default function BeneficiosPage() {
             {canjes.length > 0 && (
               <div className="card p-5">
                 <h2 className="font-serif font-semibold text-gray-900 mb-3">
-                  📜 Tus canjes
+                  Tus canjes
                 </h2>
                 <div className="space-y-2.5">
                   {canjes.map((c) => {
@@ -290,7 +293,13 @@ export default function BeneficiosPage() {
                     });
                     return (
                       <div key={c.id} className="flex items-center gap-3">
-                        <span className="text-lg shrink-0">🎁</span>
+                        <svg className="w-5 h-5 shrink-0 text-gray-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                          <polyline points="20 12 20 22 4 22 4 12"/>
+                          <rect x="2" y="7" width="20" height="5" rx="1"/>
+                          <line x1="12" y1="7" x2="12" y2="22"/>
+                          <path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z"/>
+                          <path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"/>
+                        </svg>
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-medium text-gray-800 truncate">
                             {beneficio?.item ?? "Beneficio"}

@@ -145,20 +145,24 @@ export default function DashboardPage() {
           onClick={() => router.push("/dashboard/camera")}
           className="btn-primary !rounded-2xl !py-4 !text-base"
         >
-          📷 Nueva consulta
+          <svg className="w-5 h-5 inline-block mr-1.5 -mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+            <circle cx="12" cy="13" r="4"/>
+          </svg>
+          Nueva consulta
         </button>
 
         {/* Menú de navegación rápida — Surco Club */}
         <div className="card overflow-hidden">
           <div className="grid grid-cols-2 border-b border-gray-100">
             <NavButton
-              emoji="🌱"
+              svgPath={<SeedSvg />}
               label="Mis Semillas"
               sub="Puntos y rachas"
               onClick={() => router.push("/dashboard/semillas")}
             />
             <NavButton
-              emoji="🎁"
+              svgPath={<GiftSvg />}
               label="Beneficios"
               sub="Canjea descuentos"
               onClick={() => router.push("/dashboard/beneficios")}
@@ -166,13 +170,13 @@ export default function DashboardPage() {
           </div>
           <div className="grid grid-cols-2">
             <NavButton
-              emoji="🌾"
+              svgPath={<ProfileSvg />}
               label="Mi Perfil"
               sub="Nivel Oro"
               onClick={() => router.push("/dashboard/perfil")}
             />
             <NavButton
-              emoji="🌿"
+              svgPath={<PlansSvg />}
               label="Planes"
               sub="Suscripciones"
               onClick={() => router.push("/dashboard/planes")}
@@ -199,7 +203,13 @@ export default function DashboardPage() {
                     }`}
                   >
                     <span className="text-xl shrink-0">
-                      {esLocal ? "⚠️" : "📍"}
+                      <svg className="w-5 h-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      {esLocal ? (
+                        <><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></>
+                      ) : (
+                        <><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></>
+                      )}
+                    </svg>
                     </span>
                     <div className="min-w-0">
                       <p className="text-sm font-semibold text-gray-900">
@@ -233,9 +243,9 @@ export default function DashboardPage() {
             </div>
           ) : historial.length === 0 ? (
             <EmptyState
-              emoji="📷"
+              emoji=""
               title="Aún no tienes diagnósticos"
-              description="¡Saca tu primera foto!"
+              description="Realiza tu primer diagnóstico"
             />
           ) : (
             <div className="space-y-2">
@@ -299,12 +309,12 @@ export default function DashboardPage() {
 
 /** Botón cuadrado para el menú de navegación rápida. */
 function NavButton({
-  emoji,
+  svgPath,
   label,
   sub,
   onClick,
 }: {
-  emoji: string;
+  svgPath: React.ReactNode;
   label: string;
   sub: string;
   onClick: () => void;
@@ -315,9 +325,51 @@ function NavButton({
       onClick={onClick}
       className="p-4 flex flex-col items-center gap-1.5 hover:bg-forest-50/50 active:bg-forest-100/50 transition-colors"
     >
-      <span className="text-2xl">{emoji}</span>
+      <span className="w-7 h-7 text-forest-700">{svgPath}</span>
       <span className="text-sm font-semibold text-gray-800">{label}</span>
       <span className="text-[10px] text-gray-500">{sub}</span>
     </button>
+  );
+}
+
+/** SVGs inline para navegación */
+function SeedSvg() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 2a8 8 0 0 0-8 8c0 4 4 6 8 12 4-6 8-8 8-12a8 8 0 0 0-8-8z"/>
+      <circle cx="12" cy="10" r="2" fill="currentColor"/>
+    </svg>
+  );
+}
+
+function GiftSvg() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <polyline points="20 12 20 22 4 22 4 12"/>
+      <rect x="2" y="7" width="20" height="5" rx="1"/>
+      <line x1="12" y1="7" x2="12" y2="22"/>
+      <path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z"/>
+      <path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"/>
+    </svg>
+  );
+}
+
+function ProfileSvg() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="8" r="4"/>
+      <path d="M3 21c0-5 4-9 9-9s9 4 9 9"/>
+      <line x1="18" y1="3" x2="21" y2="6"/>
+      <line x1="21" y1="3" x2="18" y2="6"/>
+    </svg>
+  );
+}
+
+function PlansSvg() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+      <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+    </svg>
   );
 }

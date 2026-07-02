@@ -22,17 +22,17 @@ const REGIONES = [
 ];
 
 const TIPOS_TERRENO = [
-  { value: "parcela", label: "🌾 Parcela", desc: "Terreno extenso para cultivo" },
-  { value: "huerto", label: "🥬 Huerto", desc: "Jardín o espacio pequeño de cultivo" },
-  { value: "invernadero", label: "🏡 Invernadero", desc: "Estructura techada para cultivo controlado" },
+  { value: "parcela", label: "Parcela", icon: "parcela", desc: "Terreno extenso para cultivo" },
+  { value: "huerto", label: "Huerto", icon: "huerto", desc: "Jardín o espacio pequeño de cultivo" },
+  { value: "invernadero", label: "Invernadero", icon: "invernadero", desc: "Estructura techada para cultivo controlado" },
 ] as const;
 
 // Condiciones para Nivel Oro
 const ORO_REQUISITOS = [
-  { key: "cuenta_verificada", label: "Verificar RUT o teléfono", emoji: "✅" },
-  { key: "diagnosticos_suficientes", label: "10+ diagnósticos realizados", emoji: "📷" },
-  { key: "semillas_acumuladas", label: "2,000+ semillas acumuladas", emoji: "🌱" },
-  { key: "datos_parcela", label: "Completar datos del terreno", emoji: "🌾" },
+  { key: "cuenta_verificada", label: "Verificar RUT o teléfono" },
+  { key: "diagnosticos_suficientes", label: "10+ diagnósticos realizados" },
+  { key: "semillas_acumuladas", label: "2,000+ semillas acumuladas" },
+  { key: "datos_parcela", label: "Completar datos del terreno" },
 ];
 
 export default function PerfilPage() {
@@ -129,10 +129,10 @@ export default function PerfilPage() {
         });
         const data = await res.json();
         if (data.ok) {
-          toast.success("✅ Datos guardados. ¡Ganaste 150 semillas!");
+          toast.success("Datos guardados. ¡Ganaste 150 semillas!");
         } else {
           // Si el RPC detectó duplicado (nonce ya usado), igual fue éxito
-          toast.success("✅ Datos del terreno actualizados.");
+toast.success("Datos del terreno actualizados.");
         }
       } else {
         toast.success("✅ Datos del terreno actualizados.");
@@ -158,7 +158,7 @@ export default function PerfilPage() {
         .update({ rut: rut.trim(), rut_verificado: true, updated_at: new Date().toISOString() })
         .eq("id", user.id);
       if (error) throw error;
-      toast.success("✅ RUT verificado correctamente.");
+      toast.success("RUT verificado correctamente.");
       loadData();
     } catch (e) {
       console.error("Error verificando RUT:", e);
@@ -178,7 +178,7 @@ export default function PerfilPage() {
         .update({ telefono: telefono.trim(), telefono_verificado: true, updated_at: new Date().toISOString() })
         .eq("id", user.id);
       if (error) throw error;
-      toast.success("✅ Teléfono verificado correctamente.");
+      toast.success("Teléfono verificado correctamente.");
       loadData();
     } catch (e) {
       console.error("Error verificando teléfono:", e);
@@ -229,7 +229,7 @@ export default function PerfilPage() {
             <div className={`card p-5 ${esOro ? "bg-gradient-to-br from-amber-50 to-yellow-50 border-amber-200" : ""}`}>
               <div className="flex items-center justify-between mb-3">
                 <h2 className="font-serif font-semibold text-gray-900">
-                  {esOro ? "🏆 Nivel Oro — ¡Felicidades!" : "🌾 Nivel Cosecha"}
+                  {esOro ? "Nivel Oro — ¡Felicidades!" : "Nivel Cosecha"}
                 </h2>
                 {!esOro && (
                   <span className="text-xs font-bold text-amber-700 bg-amber-100 px-2.5 py-1 rounded-full">
@@ -254,7 +254,12 @@ export default function PerfilPage() {
 
               {esOro && (
                 <div className="bg-amber-100/50 rounded-xl p-4 mb-4 text-center">
-                  <div className="text-4xl mb-2">🏆</div>
+                  <svg className="w-10 h-10 mx-auto mb-2 text-amber-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5C8 4 12 9 12 9"/>
+                    <path d="M18 9h1.5a2.5 2.5 0 0 0 0-5C16 4 12 9 12 9"/>
+                    <path d="M12 9v12"/>
+                    <path d="M8 21h8"/>
+                  </svg>
                   <p className="text-sm font-semibold text-amber-900">
                     ¡Has desbloqueado el nivel Oro!
                   </p>
@@ -284,7 +289,7 @@ export default function PerfilPage() {
                           cumple ? "text-gray-700 font-medium" : "text-gray-500"
                         }`}
                       >
-                        {req.emoji} {req.label}
+                        {req.label}
                       </span>
                     </div>
                   );
@@ -295,7 +300,7 @@ export default function PerfilPage() {
             {/* Verificación de identidad */}
             <div className="card p-5">
               <h2 className="font-serif font-semibold text-gray-900 mb-3">
-                🔐 Verificación
+                Verificación
               </h2>
               <div className="space-y-4">
                 {/* RUT */}
@@ -322,7 +327,7 @@ export default function PerfilPage() {
                       </button>
                     ) : (
                       <span className="bg-green-50 text-green-700 rounded-xl px-4 py-2.5 text-xs font-semibold shrink-0 flex items-center gap-1">
-                        ✓ Verificado
+                        Verificado
                       </span>
                     )}
                   </div>
@@ -352,7 +357,7 @@ export default function PerfilPage() {
                       </button>
                     ) : (
                       <span className="bg-green-50 text-green-700 rounded-xl px-4 py-2.5 text-xs font-semibold shrink-0 flex items-center gap-1">
-                        ✓ Verificado
+                        Verificado
                       </span>
                     )}
                   </div>
@@ -363,11 +368,11 @@ export default function PerfilPage() {
             {/* Datos del terreno */}
             <div className="card p-5">
               <h2 className="font-serif font-semibold text-gray-900 mb-1">
-                🌾 Datos del terreno
+                Datos del terreno
               </h2>
               <p className="text-xs text-gray-500 mb-4">
                 {resumen?.datos_parcela_completos
-                  ? "✓ Terreno registrado"
+                  ? "Terreno registrado"
                   : "Completa para ganar 150 semillas y avanzar a nivel Oro"}
               </p>
 
@@ -389,8 +394,28 @@ export default function PerfilPage() {
                             : "border-gray-100 bg-white text-gray-500 hover:border-gray-200"
                         }`}
                       >
-                        <div className="text-lg mb-1">{t.label.split(" ")[0]}</div>
-                        <div className="leading-tight">{t.label.split(" ").slice(1).join(" ")}</div>
+                        <div className="w-6 h-6 mx-auto mb-1 text-forest-600">
+                          {t.icon === "parcela" ? (
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                              <path d="M2 22L12 2l10 20H2z"/>
+                              <path d="M12 2v20"/>
+                            </svg>
+                          ) : t.icon === "huerto" ? (
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                              <path d="M12 8V2"/>
+                              <path d="M8 4h8"/>
+                              <rect x="2" y="10" width="20" height="12" rx="1"/>
+                            </svg>
+                          ) : (
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                              <path d="M7 21V8a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v13"/>
+                              <path d="M3 21h18"/>
+                              <path d="M12 6V4"/>
+                              <path d="M9 3h6"/>
+                            </svg>
+                          )}
+                        </div>
+                        <div className="leading-tight">{t.label}</div>
                       </button>
                     ))}
                   </div>
@@ -461,15 +486,15 @@ export default function PerfilPage() {
                   {saving
                     ? "Guardando..."
                     : resumen?.datos_parcela_completos
-                      ? "✏️ Editar datos del terreno"
+                      ? "Editar datos del terreno"
                       : "Guardar datos del terreno"}
                 </button>
 
                 {(!resumen?.datos_parcela_completos || saving) && (
                   <p className="text-xs text-forest-700 bg-forest-50 rounded-lg p-3 text-center font-medium">
                     {resumen?.datos_parcela_completos
-                      ? "🔄 Actualiza tus datos de terreno cuando sea necesario"
-                      : "🎉 Gana 150 semillas al completar tu perfil por primera vez"}
+                      ? "Actualiza tus datos de terreno cuando sea necesario"
+                      : "Gana 150 semillas al completar tu perfil por primera vez"}
                   </p>
                 )}
               </div>
@@ -478,7 +503,7 @@ export default function PerfilPage() {
             {/* Información del usuario */}
             <div className="card p-5">
               <h2 className="font-serif font-semibold text-gray-900 mb-3">
-                📋 Resumen
+                Resumen
               </h2>
               <div className="space-y-2 text-sm">
                 <div className="flex justify-between">
@@ -491,7 +516,7 @@ export default function PerfilPage() {
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-500">Racha actual</span>
-                  <span className="font-semibold text-gray-800">{resumen?.racha_actual ?? 0} días 🔥</span>
+                  <span className="font-semibold text-gray-800">{resumen?.racha_actual ?? 0} días</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-500">Mejor racha</span>
