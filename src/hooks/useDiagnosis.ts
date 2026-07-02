@@ -80,7 +80,17 @@ export function useDiagnosis(): UseDiagnosisReturn {
           body: JSON.stringify(input),
         });
 
-        const data: ApiResponse<DiagnosticoResult> = await res.json();
+        // Intentar parsear JSON; si falla, mostrar el texto de la respuesta
+        let data: ApiResponse<DiagnosticoResult>;
+        try {
+          data = await res.json();
+        } catch {
+          const text = await res.text().catch(() => "No se pudo leer respuesta");
+          console.error("[useDiagnosis] Respuesta no-JSON:", res.status, text.substring(0, 500));
+          throw new Error(
+            `Error del servidor (${res.status}). ${text.substring(0, 200)}`
+          );
+        }
 
         if (!data.ok) {
           throw new Error(data.error ?? "Error al realizar diagnóstico");

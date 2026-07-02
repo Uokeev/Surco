@@ -137,7 +137,7 @@ export default function DiagnosticoDetailPage() {
         </div>
       </header>
 
-      <main className="flex-1 px-5 pt-5 pb-8 overflow-y-auto">
+      <main id="main-content" className="flex-1 px-5 pt-5 pb-8 overflow-y-auto" tabIndex={-1}>
         <DiagnosisResult
           result={result}
           crop={diagnostico.crop}

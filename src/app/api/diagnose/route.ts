@@ -55,7 +55,40 @@ export async function POST(
     }
 
     // ─── 3. Validar cuerpo ─────────────────────────
-    const body = await request.json();
+    let body: unknown;
+    try {
+      const rawBody = await request.text();
+      const bodySizeKB = (rawBody.length / 1024).toFixed(1);
+      console.log(`[Diagnose] Body size: ${bodySizeKB}KB`);
+
+      if (!rawBody || rawBody.trim().length === 0) {
+        console.error("[Diagnose] Body vacío");
+        return NextResponse.json(
+          { ok: false, error: "Cuerpo de solicitud vacío." },
+          { status: 400 }
+        );
+      }
+
+      try {
+        body = JSON.parse(rawBody);
+      } catch {
+        console.error(
+          "[Diagnose] JSON inválido, primeros 500 chars:",
+          rawBody.substring(0, 500)
+        );
+        return NextResponse.json(
+          { ok: false, error: "El cuerpo de la solicitud no es JSON válido." },
+          { status: 400 }
+        );
+      }
+    } catch (e) {
+      console.error("[Diagnose] Error leyendo body:", e);
+      return NextResponse.json(
+        { ok: false, error: "Error al leer la solicitud." },
+        { status: 400 }
+      );
+    }
+
     const parsed = DiagnoseSchema.safeParse(body);
 
     if (!parsed.success) {
@@ -276,7 +309,7 @@ export async function POST(
       }
     );
   } catch (error) {
-    console.error("Error en diagnose API:", error);
+    console.error("[Diagnose] Error inesperado:", error);
 
     if (error instanceof SyntaxError) {
       return NextResponse.json(
@@ -285,8 +318,10 @@ export async function POST(
       );
     }
 
+    const errorMessage =
+      error instanceof Error ? error.message : "Error interno del servidor.";
     return NextResponse.json(
-      { ok: false, error: "Error interno del servidor." },
+      { ok: false, error: errorMessage },
       { status: 500 }
     );
   }

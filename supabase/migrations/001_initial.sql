@@ -20,6 +20,7 @@ CREATE TABLE IF NOT EXISTS public.users (
 ALTER TABLE public.users ENABLE ROW LEVEL SECURITY;
 
 -- RLS: cada usuario solo ve/edita su propio perfil
+DROP POLICY IF EXISTS "users_own" ON public.users;
 CREATE POLICY "users_own" ON public.users
   FOR ALL USING (auth.uid()::text = id);
 
@@ -46,7 +47,8 @@ BEGIN
 END;
 $$;
 
-CREATE OR REPLACE TRIGGER on_auth_user_created
+DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
+CREATE TRIGGER on_auth_user_created
   AFTER INSERT OR UPDATE ON auth.users
   FOR EACH ROW
   EXECUTE FUNCTION public.handle_new_user();
@@ -78,6 +80,7 @@ CREATE TABLE IF NOT EXISTS public.diagnosticos (
 ALTER TABLE public.diagnosticos ENABLE ROW LEVEL SECURITY;
 
 -- RLS: usuarios ven solo sus propios diagnósticos
+DROP POLICY IF EXISTS "diagnosticos_own" ON public.diagnosticos;
 CREATE POLICY "diagnosticos_own" ON public.diagnosticos
   FOR ALL USING (auth.uid()::text = user_id);
 
@@ -85,9 +88,9 @@ CREATE POLICY "diagnosticos_own" ON public.diagnosticos
 -- CREATE POLICY "diagnosticos_admin_read" ON public.diagnosticos
 --   FOR SELECT USING (auth.jwt() ->> 'role' = 'admin');
 
-CREATE INDEX idx_diagnosticos_user_id   ON public.diagnosticos (user_id);
-CREATE INDEX idx_diagnosticos_created_at ON public.diagnosticos (created_at DESC);
-CREATE INDEX idx_diagnosticos_crop_region ON public.diagnosticos (crop, region);
+CREATE INDEX IF NOT EXISTS idx_diagnosticos_user_id   ON public.diagnosticos (user_id);
+CREATE INDEX IF NOT EXISTS idx_diagnosticos_created_at ON public.diagnosticos (created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_diagnosticos_crop_region ON public.diagnosticos (crop, region);
 
 -- ════ 3. ENFERMEDADES SAG ════
 CREATE TABLE IF NOT EXISTS public.enfermedades_sag (
@@ -106,10 +109,11 @@ CREATE TABLE IF NOT EXISTS public.enfermedades_sag (
 ALTER TABLE public.enfermedades_sag ENABLE ROW LEVEL SECURITY;
 
 -- RLS: las enfermedades SAG son públicas (solo lectura para autenticados)
+DROP POLICY IF EXISTS "enfermedades_sag_read" ON public.enfermedades_sag;
 CREATE POLICY "enfermedades_sag_read" ON public.enfermedades_sag
   FOR SELECT USING (auth.role() = 'authenticated');
 
-CREATE INDEX idx_enfermedades_cultivo ON public.enfermedades_sag (cultivo);
+CREATE INDEX IF NOT EXISTS idx_enfermedades_cultivo ON public.enfermedades_sag (cultivo);
 
 -- ════ 4. ZONAS (agregado regional) ════
 CREATE TABLE IF NOT EXISTS public.zonas (
@@ -124,6 +128,7 @@ CREATE TABLE IF NOT EXISTS public.zonas (
 ALTER TABLE public.zonas ENABLE ROW LEVEL SECURITY;
 
 -- RLS: zonas es público (solo lectura)
+DROP POLICY IF EXISTS "zonas_read" ON public.zonas;
 CREATE POLICY "zonas_read" ON public.zonas
   FOR SELECT USING (auth.role() = 'authenticated');
 
@@ -142,17 +147,20 @@ CREATE TABLE IF NOT EXISTS public.alertas_zona (
 ALTER TABLE public.alertas_zona ENABLE ROW LEVEL SECURITY;
 
 -- RLS: alertas es público (lectura para autenticados, upsert para cualquiera autenticado)
+DROP POLICY IF EXISTS "alertas_zona_read" ON public.alertas_zona;
 CREATE POLICY "alertas_zona_read" ON public.alertas_zona
   FOR SELECT USING (auth.role() = 'authenticated');
 
+DROP POLICY IF EXISTS "alertas_zona_write" ON public.alertas_zona;
 CREATE POLICY "alertas_zona_write" ON public.alertas_zona
   FOR INSERT WITH CHECK (auth.role() = 'authenticated');
 
+DROP POLICY IF EXISTS "alertas_zona_update" ON public.alertas_zona;
 CREATE POLICY "alertas_zona_update" ON public.alertas_zona
   FOR UPDATE USING (auth.role() = 'authenticated');
 
-CREATE INDEX idx_alertas_region ON public.alertas_zona (region);
-CREATE INDEX idx_alertas_reportes ON public.alertas_zona (reportes DESC);
+CREATE INDEX IF NOT EXISTS idx_alertas_region ON public.alertas_zona (region);
+CREATE INDEX IF NOT EXISTS idx_alertas_reportes ON public.alertas_zona (reportes DESC);
 
 -- ════ 6. FUNCIÓN: incrementar diagnóstico en zona ════
 CREATE OR REPLACE FUNCTION public.incrementar_zona(
@@ -231,7 +239,8 @@ BEGIN
 END;
 $$;
 
-CREATE OR REPLACE TRIGGER on_diagnostico_created
+DROP TRIGGER IF EXISTS on_diagnostico_created ON public.diagnosticos;
+CREATE TRIGGER on_diagnostico_created
   AFTER INSERT ON public.diagnosticos
   FOR EACH ROW
   EXECUTE FUNCTION public.incrementar_diagnosticos_usuario();

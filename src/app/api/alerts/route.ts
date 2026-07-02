@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAuthenticatedUser, createSupabaseServerClient } from "@/lib/supabase/server";
 import type { ApiResponse, AlertaZona } from "@/types";
 
+export const dynamic = "force-dynamic";
+
 export async function GET(
   _request: NextRequest
 ): Promise<NextResponse<ApiResponse<AlertaZona[]>>> {

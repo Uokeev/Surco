@@ -8,6 +8,7 @@ import { WeatherWidget } from "@/components/Weather/WeatherWidget";
 import { DiagnosisResult } from "@/components/Diagnosis/DiagnosisResult";
 import { useWeather } from "@/hooks/useWeather";
 import { useDiagnosis } from "@/hooks/useDiagnosis";
+import { useToastHelpers } from "@/components/ui/Toast";
 import type { DiagnosticoResult, UsoTipo } from "@/types";
 
 const CULTIVOS = [
@@ -42,6 +43,8 @@ export default function CameraPage() {
   const [view, setView] = useState<"form" | "analyzing" | "result">("form");
   const [lastResult, setLastResult] = useState<DiagnosticoResult | null>(null);
 
+  const toast = useToastHelpers();
+
   const previewImage = imageBase64 ? `data:${imageMime};base64,${imageBase64}` : null;
 
   // Redirigir si no hay sesión
@@ -62,7 +65,7 @@ export default function CameraPage() {
   // Voice recognition
   const toggleVoice = useCallback(() => {
     if (!("webkitSpeechRecognition" in window) && !("SpeechRecognition" in window)) {
-      alert("Tu navegador no soporta reconocimiento de voz. Usa Chrome.");
+      toast.warning("Tu navegador no soporta reconocimiento de voz. Usa Chrome.");
       return;
     }
 
@@ -75,7 +78,7 @@ export default function CameraPage() {
 
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SR) {
-      alert("Tu navegador no soporta reconocimiento de voz. Usa Chrome.");
+      toast.warning("Tu navegador no soporta reconocimiento de voz. Usa Chrome.");
       return;
     }
     const recognition = new SR();
@@ -117,7 +120,7 @@ export default function CameraPage() {
 
   const handleAnalyze = useCallback(async () => {
     if (!imageBase64 || !crop || !region) {
-      alert("Completa la foto, el cultivo y la región.");
+      toast.warning("Completa la foto, el cultivo y la región.");
       return;
     }
 
@@ -245,7 +248,7 @@ export default function CameraPage() {
           </div>
         </header>
 
-        <main className="flex-1 px-5 pt-5 pb-8 overflow-y-auto">
+        <main id="main-content" className="flex-1 px-5 pt-5 pb-8 overflow-y-auto" tabIndex={-1}>
           <DiagnosisResult
             result={lastResult}
             crop={crop}
@@ -280,7 +283,7 @@ export default function CameraPage() {
       </header>
 
       {/* Body */}
-      <main className="flex-1 px-5 pt-5 pb-8 overflow-y-auto space-y-4">
+      <main id="main-content" className="flex-1 px-5 pt-5 pb-8 overflow-y-auto space-y-4" tabIndex={-1}>
         {/* Ubicación y clima */}
         <WeatherWidget
           weather={weather}

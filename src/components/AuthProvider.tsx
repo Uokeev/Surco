@@ -31,6 +31,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     supabase.auth.getUser().then(({ data: { user: u } }) => {
       setUser(u);
       setLoading(false);
+      if (u) {
+        inicializarUsuario(u.id);
+      }
     });
 
     // Escuchar cambios de auth
@@ -39,12 +42,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } = supabase.auth.onAuthStateChange((event, session) => {
       setUser(session?.user ?? null);
       setLoading(false);
+      if (event === "SIGNED_IN" && session?.user) {
+        inicializarUsuario(session.user.id);
+      }
     });
 
     return () => {
       subscription.unsubscribe();
     };
   }, [supabase]);
+
+  /** Inicializa perfil del usuario (fire-and-forget, no bloquea el login). */
+  const inicializarUsuario = useCallback(async (userId: string) => {
+    try {
+      await fetch("/api/club/init", { method: "POST" });
+    } catch {
+      // Silencioso — no bloquear el login del usuario
+    }
+  }, []);
 
   const signInWithGoogle = useCallback(async () => {
     const origin = window.location.origin;

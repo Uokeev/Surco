@@ -1,12 +1,20 @@
 "use client";
 
-import { useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useEffect, useMemo } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/components/AuthProvider";
 
-export default function LoginPage() {
+/** Componente interno que usa useSearchParams — debe ir dentro de <Suspense>. */
+function LoginForm() {
   const { user, loading, signInWithGoogle } = useAuth();
   const router = useRouter();
+  const searchParams = useSearchParams();
+
+  const errorDetail = useMemo(() => {
+    const err = searchParams.get("error");
+    const detail = searchParams.get("detail");
+    return err ? (detail ?? err) : null;
+  }, [searchParams]);
 
   useEffect(() => {
     if (!loading && user) {
@@ -31,7 +39,6 @@ export default function LoginPage() {
           "repeating-linear-gradient(0deg, transparent, transparent 48px, rgba(255,255,255,.015) 48px, rgba(255,255,255,.015) 50px), repeating-linear-gradient(90deg, transparent, transparent 48px, rgba(255,255,255,.015) 48px, rgba(255,255,255,.015) 50px)",
       }}
     >
-      {/* Wordmark */}
       <div className="text-center mb-12">
         <div className="font-serif text-4xl font-bold text-white">Surco</div>
         <p className="text-sm text-white/60 italic mt-1 max-w-[220px] mx-auto">
@@ -39,7 +46,6 @@ export default function LoginPage() {
         </p>
       </div>
 
-      {/* Login Card */}
       <div className="bg-white rounded-2xl p-7 w-full max-w-xs shadow-2xl">
         <h1 className="font-serif text-lg font-semibold text-gray-900">
           Iniciar sesión
@@ -47,6 +53,12 @@ export default function LoginPage() {
         <p className="text-sm text-gray-500 mt-1 mb-6 leading-relaxed">
           Accede para diagnosticar tus cultivos y guardar tu historial.
         </p>
+
+        {errorDetail && (
+          <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-3.5 py-2.5 text-xs text-red-700">
+            Error al iniciar sesión: {errorDetail}
+          </div>
+        )}
 
         <button
           type="button"
@@ -75,5 +87,20 @@ export default function LoginPage() {
         </button>
       </div>
     </div>
+  );
+}
+
+/** Página de login — envuelve LoginForm en Suspense para useSearchParams(). */
+export default function LoginPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex-1 flex items-center justify-center bg-forest-800">
+          <div className="w-8 h-8 border-3 border-white/30 border-t-white rounded-full animate-spin" />
+        </div>
+      }
+    >
+      <LoginForm />
+    </Suspense>
   );
 }

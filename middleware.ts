@@ -14,10 +14,7 @@ export async function middleware(request: NextRequest) {
     !PUBLIC_PATHS.includes(pathname) &&
     (pathname.startsWith("/dashboard") ||
       pathname.startsWith("/diagnostico") ||
-      pathname.startsWith("/api/diagnose") ||
-      pathname.startsWith("/api/weather") ||
-      pathname.startsWith("/api/sag") ||
-      pathname.startsWith("/api/alerts"));
+      pathname.startsWith("/api/"));
 
   let sessionUser = null;
   let sessionResponse = NextResponse.next();
@@ -56,30 +53,49 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  // ─── 3. Rate limiting para API routes específicas ────
-  if (
-    isApiRoute &&
-    (pathname.startsWith("/api/diagnose") || pathname.startsWith("/api/weather"))
-  ) {
+  // ─── 3. Rate limiting para TODAS las API routes ────
+  if (isApiRoute) {
     const clientIp =
       request.headers.get("x-forwarded-for")?.split(",")?.[0]?.trim() ??
       request.headers.get("x-real-ip") ??
       "unknown";
 
+    // Límites diferenciados por tipo de endpoint
+    const limits: Record<string, { max: number; window: number }> = {
+      "/api/diagnose": { max: 5, window: 60_000 },      // 5/min — intensivo IA
+      "/api/weather": { max: 15, window: 60_000 },       // 15/min — datos externos
+      "/api/club/puntos": { max: 10, window: 60_000 },   // 10/min — no abusar
+      "/api/club/init": { max: 5, window: 60_000 },      // 5/min — solo al login
+      "/api/sag": { max: 20, window: 60_000 },            // 20/min — consultas
+      "/api/alerts": { max: 20, window: 60_000 },         // 20/min — consultas
+    };
+
+    // Buscar límite específico o usar default
+    const matchedRoute = Object.keys(limits).find((route) =>
+      pathname.startsWith(route)
+    );
+    const { max: maxRequests, window: windowMs } = matchedRoute
+      ? limits[matchedRoute]!
+      : { max: 30, window: 60_000 }; // default: 30/min
+
     const result = await checkRateLimit(ipKey(clientIp), {
-      maxRequests: 10,
-      windowMs: 60_000,
+      maxRequests,
+      windowMs,
     });
 
     if (!result.allowed) {
+      const retryAfter = Math.ceil((result.resetAt - Date.now()) / 1000);
+      const errorMsg =
+        maxRequests <= 5
+          ? "Demasiadas solicitudes. Espera un momento antes de intentar de nuevo."
+          : "Demasiadas solicitudes. Intenta en 1 minuto.";
+
       return NextResponse.json(
-        { ok: false, error: "Demasiadas solicitudes. Intenta en 1 minuto." },
+        { ok: false, error: errorMsg },
         {
           status: 429,
           headers: {
-            "Retry-After": String(
-              Math.ceil((result.resetAt - Date.now()) / 1000)
-            ),
+            "Retry-After": String(retryAfter),
             "X-RateLimit-Remaining": "0",
           },
         }

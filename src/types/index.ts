@@ -136,6 +136,137 @@ export interface CalculoDosisResult {
   descripcion: string;
 }
 
+// ─── Planes / Suscripción ──────────────────────────────
+// ─── Niveles / Club Surco ─────────────────────────────
+export type NivelUsuario = "cosecha" | "oro";
+export type TipoTerreno = "parcela" | "huerto" | "invernadero";
+
+// ─── Planes / Suscripción ──────────────────────────────
+export interface Plan {
+  id: string;
+  nombre: "gratuito" | "pro" | "premium";
+  precio_mensual: number;
+  precio_anual: number | null;
+  diagnosticos_limite: number;
+  diagnostico_max_fotos: number;
+  tiene_historial: boolean;
+  tiene_alertas: boolean;
+  tiene_prioritario: boolean;
+  semillas_bonus: number;
+}
+
+export interface SuscripcionUsuario {
+  id: string;
+  user_id: string;
+  plan_id: string;
+  estado: "activa" | "cancelada" | "expirada" | "trial";
+  fecha_inicio: string;
+  fecha_fin: string | null;
+  plan?: Plan;
+}
+
+// ─── Semillas / Gamificación ──────────────────────────
+export type SemillaTipo = "basica" | "rara" | "epica";
+
+export interface SemillaUsuario {
+  tipo: SemillaTipo;
+  cantidad: number;
+  puntaje_total?: number;
+}
+
+export interface TransaccionSemilla {
+  id: string;
+  user_id: string;
+  tipo: "ganancia" | "gasto" | "bonus";
+  semilla_tipo: SemillaTipo;
+  cantidad: number;
+  razon: string;
+  referencia_id: string | null;
+  created_at: string;
+}
+
+// ─── Reglas de puntaje ────────────────────────────────
+export interface ReglaSemilla {
+  accion: string;
+  puntos: number;
+  codigo: string;
+  emoji: string;
+  descripcion: string;
+}
+
+export const REGLAS_SEMILLAS: ReglaSemilla[] = [
+  { accion: "Diagnóstico de cultivo", puntos: 50, codigo: "DIAGNOSTICO", emoji: "📷", descripcion: "Por cada diagnóstico completado" },
+  { accion: "Racha de 7 días de uso", puntos: 100, codigo: "RACHA_7_DIAS", emoji: "🔥", descripcion: "Usa Surco 7 días seguidos" },
+  { accion: "Referir a otro agricultor", puntos: 200, codigo: "REFERIDO", emoji: "👥", descripcion: "Invita a otro agricultor a registrarse" },
+  { accion: "Dejar reseña en la app", puntos: 80, codigo: "RESEÑA", emoji: "⭐", descripcion: "Califica Surco en la tienda de apps" },
+  { accion: "Completar perfil de parcela", puntos: 150, codigo: "PERFIL_PARCELA", emoji: "🌾", descripcion: "Ingresa datos de tu terreno" },
+];
+
+// ─── Catalogo de beneficios ────────────────────────────
+export interface CatalogoBeneficio {
+  id: string;
+  item: string;
+  partner: string;
+  descripcion: string | null;
+  costo_puntos: number;
+  categoria: "quimicos" | "educacion" | "herramientas" | "descuentos";
+  imagen_url: string | null;
+  stock: number;
+  activo: boolean;
+}
+
+export interface CanjeUsuario {
+  id: string;
+  user_id: string;
+  beneficio_id: string;
+  puntos_gastados: number;
+  estado: "pendiente" | "aprobado" | "entregado" | "rechazado";
+  codigo_canje: string | null;
+  created_at: string;
+  beneficio?: CatalogoBeneficio;
+}
+
+// ─── Rachas ────────────────────────────────────────────
+export interface RachaUsuario {
+  id: string;
+  user_id: string;
+  racha_actual: number;
+  racha_maxima: number;
+  ultimo_acceso: string;
+}
+
+// ─── Referidos ─────────────────────────────────────────
+export interface ReferidoUsuario {
+  id: string;
+  usuario_id: string;
+  referido_id: string;
+  codigo_referido: string;
+  puntos_ganados: number;
+  created_at: string;
+}
+
+// ─── Resumen Club Surco (desde la vista) ──────────────
+export interface ResumenClubSurco {
+  user_id: string;
+  nivel: NivelUsuario;
+  semillas_acumuladas: number;
+  rut_verificado: boolean;
+  telefono_verificado: boolean;
+  datos_parcela_completos: boolean;
+  tipo_terreno: TipoTerreno | null;
+  parcela_region: string | null;
+  parcela_cultivo_principal: string | null;
+  parcela_hectareas: number | null;
+  terreno_size: number | null;
+  terreno_unidad: "hectareas" | "m2" | null;
+  racha_actual: number;
+  racha_maxima: number;
+  total_diagnosticos: number;
+  total_referidos: number;
+  semillas_totales: number;
+  puede_ser_oro: boolean;
+}
+
 // ─── API Responses ────────────────────────────────────
 export interface ApiResponse<T = unknown> {
   ok: boolean;

@@ -1,0 +1,22 @@
+{
+  "name": "Surco — Diagnóstico de Cultivos",
+  "short_name": "Surco",
+  "description": "Diagnostica enfermedades en tus cultivos usando IA. Basado en guías SAG e INIA para agricultores chilenos.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#1E3D2B",
+  "theme_color": "#1E3D2B",
+  "orientation": "portrait-primary",
+  "lang": "es-CL",
+  "categories": ["agriculture", "utilities", "education"],
+  "icons": [
+    {
+      "src": "/icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "screenshots": [],
+  "prefer_related_applications": false
+}

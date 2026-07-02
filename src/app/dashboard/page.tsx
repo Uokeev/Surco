@@ -7,6 +7,7 @@ import { WeatherWidget } from "@/components/Weather/WeatherWidget";
 import { useWeather } from "@/hooks/useWeather";
 import type { Diagnostico, AlertaZona } from "@/types";
 import { getSupabaseClient } from "@/lib/supabase/client";
+import { EmptyState } from "@/components/ui/EmptyState";
 
 export default function DashboardPage() {
   const { user, loading, signOut } = useAuth();
@@ -114,7 +115,7 @@ export default function DashboardPage() {
       </header>
 
       {/* Body */}
-      <main className="flex-1 px-5 pt-5 pb-8 overflow-y-auto space-y-5">
+      <main id="main-content" className="flex-1 px-5 pt-5 pb-8 overflow-y-auto space-y-5" tabIndex={-1}>
         {/* Plan card */}
         <div className="card p-4 flex items-center justify-between">
           <div>
@@ -146,6 +147,38 @@ export default function DashboardPage() {
         >
           📷 Nueva consulta
         </button>
+
+        {/* Menú de navegación rápida — Surco Club */}
+        <div className="card overflow-hidden">
+          <div className="grid grid-cols-2 border-b border-gray-100">
+            <NavButton
+              emoji="🌱"
+              label="Mis Semillas"
+              sub="Puntos y rachas"
+              onClick={() => router.push("/dashboard/semillas")}
+            />
+            <NavButton
+              emoji="🎁"
+              label="Beneficios"
+              sub="Canjea descuentos"
+              onClick={() => router.push("/dashboard/beneficios")}
+            />
+          </div>
+          <div className="grid grid-cols-2">
+            <NavButton
+              emoji="🌾"
+              label="Mi Perfil"
+              sub="Nivel Oro"
+              onClick={() => router.push("/dashboard/perfil")}
+            />
+            <NavButton
+              emoji="🌿"
+              label="Planes"
+              sub="Suscripciones"
+              onClick={() => router.push("/dashboard/planes")}
+            />
+          </div>
+        </div>
 
         {/* Alertas de zona */}
         {alertas.length > 0 && (
@@ -199,13 +232,11 @@ export default function DashboardPage() {
               <p className="text-sm text-gray-500">Cargando historial...</p>
             </div>
           ) : historial.length === 0 ? (
-            <div className="card border-dashed p-8 text-center">
-              <p className="text-sm text-gray-500 leading-relaxed">
-                Aún no tienes diagnósticos.
-                <br />
-                ¡Saca tu primera foto!
-              </p>
-            </div>
+            <EmptyState
+              emoji="📷"
+              title="Aún no tienes diagnósticos"
+              description="¡Saca tu primera foto!"
+            />
           ) : (
             <div className="space-y-2">
               {historial.map((h) => {
@@ -263,5 +294,30 @@ export default function DashboardPage() {
         </section>
       </main>
     </>
+  );
+}
+
+/** Botón cuadrado para el menú de navegación rápida. */
+function NavButton({
+  emoji,
+  label,
+  sub,
+  onClick,
+}: {
+  emoji: string;
+  label: string;
+  sub: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="p-4 flex flex-col items-center gap-1.5 hover:bg-forest-50/50 active:bg-forest-100/50 transition-colors"
+    >
+      <span className="text-2xl">{emoji}</span>
+      <span className="text-sm font-semibold text-gray-800">{label}</span>
+      <span className="text-[10px] text-gray-500">{sub}</span>
+    </button>
   );
 }

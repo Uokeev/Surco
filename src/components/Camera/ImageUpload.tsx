@@ -2,6 +2,7 @@
 
 import { useRef, useState, useCallback } from "react";
 import { comprimirImagen } from "@/lib/utils";
+import { useToastHelpers } from "@/components/ui/Toast";
 
 interface ImageUploadProps {
   onImageReady: (base64: string, mime: string, file: File) => void;
@@ -13,6 +14,7 @@ export function ImageUpload({ onImageReady, onClear }: ImageUploadProps) {
   const [preview, setPreview] = useState<string | null>(null);
   const [fileName, setFileName] = useState<string | null>(null);
   const [compressing, setCompressing] = useState(false);
+  const toast = useToastHelpers();
 
   const handleFile = useCallback(
     async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -33,7 +35,7 @@ export function ImageUpload({ onImageReady, onClear }: ImageUploadProps) {
         onImageReady(base64, mime, file);
       } catch (err) {
         console.error("Error comprimiendo imagen:", err);
-        alert("Error al procesar la imagen. Intenta con otra foto.");
+        toast.error("Error al procesar la imagen. Intenta con otra foto.");
       } finally {
         setCompressing(false);
       }
@@ -48,26 +50,23 @@ export function ImageUpload({ onImageReady, onClear }: ImageUploadProps) {
     onClear();
   }, [onClear]);
 
-  const handleZoneClick = useCallback(() => {
-    inputRef.current?.click();
-  }, []);
-
   return (
     <div>
       {!preview ? (
-        <button
-          type="button"
-          onClick={handleZoneClick}
-          disabled={compressing}
-          className="w-full border-2 border-dashed border-forest-300/50 rounded-2xl py-10 px-5 text-center cursor-pointer hover:bg-forest-50/50 transition-colors relative overflow-hidden disabled:opacity-60"
+        /* ⚠️ Usamos <label> en vez de <button> porque <input type="file">
+             dentro de <button> es HTML inválido y no funciona en Safari/Chrome móvil */
+        <label
+          className={`w-full border-2 border-dashed border-forest-300/50 rounded-2xl py-10 px-5 text-center cursor-pointer hover:bg-forest-50/50 transition-colors block relative overflow-hidden ${
+            compressing ? "opacity-60 pointer-events-none" : ""
+          }`}
         >
           <input
             ref={inputRef}
             type="file"
-            accept="image/jpeg,image/png,image/webp"
+            accept="image/*"
             capture="environment"
             onChange={handleFile}
-            className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+            className="hidden"
           />
           <div className="text-5xl mb-3">
             {compressing ? "⏳" : "📷"}
@@ -78,7 +77,7 @@ export function ImageUpload({ onImageReady, onClear }: ImageUploadProps) {
           <div className="text-sm text-gray-500">
             o elige desde la galería
           </div>
-        </button>
+        </label>
       ) : (
         <div className="relative mb-4 rounded-2xl overflow-hidden bg-black/5">
           {/* eslint-disable-next-line @next/next/no-img-element */}

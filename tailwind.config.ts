@@ -11,7 +11,7 @@ const config: Config = {
           200: "#c1dfc7",
           300: "#93c69f",
           400: "#5fa771",
-          500: "#3d8b54",
+          500: "#358048",
           600: "#2d6f42",
           700: "#255836",
           800: "#1e3d2b",
@@ -32,8 +32,8 @@ const config: Config = {
         },
       },
       fontFamily: {
-        serif: ["Lora", "Georgia", "serif"],
-        sans: ["Inter", "system-ui", "sans-serif"],
+        serif: ["var(--font-serif)", "Georgia", "serif"],
+        sans: ["var(--font-sans)", "system-ui", "sans-serif"],
       },
       maxWidth: {
         app: "430px",
