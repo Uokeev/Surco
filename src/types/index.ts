@@ -136,7 +136,76 @@ export interface CalculoDosisResult {
   descripcion: string;
 }
 
-// ─── Planes / Suscripción ──────────────────────────────
+// ─── Catálogo de Plantas de Interior ───────────────────
+export interface CatalogoPlanta {
+  id: string;
+  nombre: string;
+  nombre_cientifico: string;
+  origen: string;
+  luz: "baja" | "media" | "brillante" | "directa";
+  luz_fc_min: number;
+  luz_fc_max: number;
+  riego_trigger: "seco_tercio" | "seco_total" | "casi_seco";
+  riego_profundidad_cm: number;
+  humedad_min: number;
+  humedad_optima_min: number;
+  humedad_optima_max: number;
+  temp_min: number;
+  temp_optima_min: number;
+  temp_optima_max: number;
+  toxicidad: "ninguna" | "baja" | "alta";
+  dificultad: "facil" | "media" | "dificil";
+  crecimiento: "colgante" | "trepador" | "rastrero" | "arbustivo" | "erecto";
+  descripcion_corta: string;
+  descripcion_larga: string;
+  consejos_clave: string[];
+  problemas_comunes: string;
+  diferenciador: string;
+  propagacion_metodo: "agua" | "sphagnum" | "sustrato" | "division";
+  propagacion_detalle: string;
+  propagacion_tiempo_raiz: string;
+  propagacion_dificultad: "facil" | "media" | "dificil";
+  imagen_url: string | null;
+}
+
+export interface PlagaEnfermedad {
+  id: string;
+  nombre: string;
+  nombre_cientifico: string;
+  tipo: "plaga" | "enfermedad" | "fisiopatia";
+  sintomas: string;
+  causa: string;
+  identificacion: string;
+  factor_critico: string;
+  primeros_auxilios: string;
+  tratamiento_principal: string;
+  tratamiento_frecuencia: string;
+  preventivo: string;
+}
+
+export interface AlertaTemporada {
+  id: string;
+  temporada: "invierno" | "primavera" | "verano" | "otonio";
+  titulo: string;
+  mensaje: string;
+  acciones: string[];
+}
+
+export interface PlagaRelacionada {
+  plaga_id: string;
+  plaga_nombre: string;
+  plaga_tipo: string;
+  sintomas: string;
+  tratamiento_principal: string;
+  frecuencia: string;
+}
+
+export interface SustratoReceta {
+  nombre: string;
+  componentes: { nombre: string; porcentaje: number; funcion: string }[];
+  descripcion: string;
+}
+
 // ─── Niveles / Club Surco ─────────────────────────────
 export type NivelUsuario = "cosecha" | "oro";
 export type TipoTerreno = "parcela" | "huerto" | "invernadero";

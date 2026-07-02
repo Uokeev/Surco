@@ -152,6 +152,29 @@ export default function DashboardPage() {
           Nueva consulta
         </button>
 
+        {/* Catálogo de Plantas de Interior */}
+        <button
+          type="button"
+          onClick={() => router.push("/dashboard/plantas")}
+          className="card p-4 w-full text-left hover:bg-forest-50/50 active:bg-forest-100/50 transition-all flex items-center gap-3"
+        >
+          <span className="w-10 h-10 rounded-xl bg-forest-100 flex items-center justify-center text-forest-700 shrink-0">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="w-5 h-5">
+              <path d="M12 2v8m0 0a4 4 0 1 0 0 8 4 4 0 0 0 0-8z"/>
+              <path d="M2 12h8m0 0a4 4 0 1 0 8 0 4 4 0 0 0-8 0z"/>
+              <path d="M12 22v-8m0 0a4 4 0 1 0 0-8 4 4 0 0 0 0 8z"/>
+              <path d="M22 12h-8m0 0a4 4 0 1 0-8 0 4 4 0 0 0 8 0z"/>
+            </svg>
+          </span>
+          <div>
+            <p className="text-sm font-semibold text-gray-900">Catálogo de Plantas de Interior 🌿</p>
+            <p className="text-xs text-gray-500">Fichas técnicas, plagas y alertas estacionales</p>
+          </div>
+          <svg className="w-4 h-4 text-gray-400 ml-auto shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="9 18 15 12 9 6" />
+          </svg>
+        </button>
+
         {/* Menú de navegación rápida — Surco Club */}
         <div className="card overflow-hidden">
           <div className="grid grid-cols-2 border-b border-gray-100">
