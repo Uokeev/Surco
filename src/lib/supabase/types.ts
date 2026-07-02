@@ -518,6 +518,13 @@ export interface Database {
         };
         Returns: boolean;
       };
+      canjear_beneficio: {
+        Args: {
+          p_user_id: string;
+          p_beneficio_id: string;
+        };
+        Returns: Record<string, unknown>;
+      };
     };
     Enums: Record<string, never>;
   };

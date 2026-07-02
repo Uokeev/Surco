@@ -84,15 +84,34 @@ export default function BeneficiosPage() {
     setCanjeando(beneficio.id);
     try {
       const supabase = getSupabaseClient();
-      const { error } = await supabase.from("canjes_usuario").insert({
-        user_id: user.id,
-        beneficio_id: beneficio.id,
-        puntos_gastados: beneficio.costo_puntos,
+
+      // Usar RPC que descuenta de semillas_acumuladas y registra el canje
+      const { data, error } = await supabase.rpc("canjear_beneficio", {
+        p_user_id: user.id,
+        p_beneficio_id: beneficio.id,
       });
 
       if (error) throw error;
 
-      toast.success(`✅ Canje exitoso. Pronto recibirás instrucciones para tu ${beneficio.item}.`);
+      const result = data as unknown as {
+        ok: boolean;
+        error?: string;
+        codigo_canje?: string;
+        item?: string;
+        partner?: string;
+        costo?: number;
+        saldo_restante?: number;
+      };
+
+      if (!result.ok) {
+        toast.error(result.error ?? "Error al procesar el canje.");
+        return;
+      }
+
+      toast.success(
+        `✅ Canje exitoso: ${result.item} (código: ${result.codigo_canje}). ` +
+        `Te contactará ${result.partner}.`
+      );
       loadData(); // Recargar
     } catch (e) {
       console.error("Error al canjear:", e);
