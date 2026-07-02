@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useCallback, useEffect, useRef, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/components/AuthProvider";
 import { ImageUpload } from "@/components/Camera/ImageUpload";
@@ -8,8 +8,10 @@ import { WeatherWidget } from "@/components/Weather/WeatherWidget";
 import { DiagnosisResult } from "@/components/Diagnosis/DiagnosisResult";
 import { useWeather } from "@/hooks/useWeather";
 import { useDiagnosis } from "@/hooks/useDiagnosis";
+import { useDiagnosisVision } from "@/hooks/useDiagnosisVision";
 import { useToastHelpers } from "@/components/ui/Toast";
 import { PlantIdentifier, PlantIdentificationBadge } from "@/components/Plantas/PlantIdentifier";
+import { buscarManual } from "@/data/manuales-plantas";
 import type { PlantPrediction } from "@/hooks/usePlantIdentifier";
 import type { DiagnosticoResult, UsoTipo } from "@/types";
 import { CULTIVOS_POR_CATEGORIA, REGIONES } from "@/lib/constants";
@@ -18,13 +20,30 @@ export default function CameraPage() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
   const { weather, loading: weatherLoading, coords, requestLocation } = useWeather();
-  const { analyzing, progress, progressText, error, result, analyze, reset } = useDiagnosis();
+  const {
+    analyzing: sagAnalyzing,
+    progress: sagProgress,
+    error: sagError,
+    result: sagResult,
+    analyze: sagAnalyze,
+    reset: sagReset,
+  } = useDiagnosis();
+  const {
+    analyzing: visionAnalyzing,
+    progress: visionProgress,
+    progressText: visionProgressText,
+    error: visionError,
+    result: visionResult,
+    analyze: visionAnalyze,
+    reset: visionReset,
+  } = useDiagnosisVision();
 
   const [imageBase64, setImageBase64] = useState<string | null>(null);
   const [imageMime, setImageMime] = useState("image/jpeg");
   const [crop, setCrop] = useState("");
   const [region, setRegion] = useState("");
   const [symptoms, setSymptoms] = useState("");
+  const [userQuery, setUserQuery] = useState("");
   const [usoTipo, setUsoTipo] = useState<UsoTipo>("hogar");
   const [isListening, setIsListening] = useState(false);
   const recognitionRef = useRef<SpeechRecognition | null>(null);
@@ -37,6 +56,17 @@ export default function CameraPage() {
   const [tmCompleted, setTmCompleted] = useState(false);
   const imgRef = useRef<HTMLImageElement | null>(null);
   const [imgElement, setImgElement] = useState<HTMLImageElement | null>(null);
+
+  // ─── Modo visión (cuando TM detecta planta con alta confianza) ──
+  const isVisionMode = useMemo(
+    () => !!(plantPrediction && plantPrediction.probability > 0.6 && buscarManual(plantPrediction.cropName)),
+    [plantPrediction]
+  );
+
+  const analyzing = isVisionMode ? visionAnalyzing : sagAnalyzing;
+  const progress = isVisionMode ? visionProgress : sagProgress;
+  const error = isVisionMode ? visionError : sagError;
+  const progressText = isVisionMode ? visionProgressText : "";
 
   // Cuando la imagen cambia, crear un elemento img para TM
   const previewImage = imageBase64 ? `data:${imageMime};base64,${imageBase64}` : null;
@@ -63,7 +93,6 @@ export default function CameraPage() {
     // Auto-seleccionar el cultivo si la confianza es alta
     if (prediction.probability > 0.6) {
       setCrop(prediction.cropName);
-      // También cambiar a uso hogar para plantas de interior
       setUsoTipo("hogar");
     }
   }, []);
@@ -152,36 +181,59 @@ export default function CameraPage() {
   }, []);
 
   const handleAnalyze = useCallback(async () => {
-    if (!imageBase64 || !crop || !region) {
-      toast.warning("Completa la foto, el cultivo y la región.");
+    if (!imageBase64) {
+      toast.warning("Toma o sube una foto primero.");
       return;
     }
 
-    setView("analyzing");
-
-    const input = {
-      imageBase64,
-      imageMime,
-      crop,
-      region,
-      symptoms,
-      usoTipo,
-      lat: coords?.lat,
-      lon: coords?.lon,
-    };
-
-    const r = await analyze(input);
-
-    if (r) {
-      setLastResult(r);
-      setView("result");
+    if (isVisionMode) {
+      // ─── Flujo Visión → RAG → Worker ──────────
+      if (!userQuery.trim()) {
+        toast.warning("Describe qué problema observas en tu planta.");
+        return;
+      }
+      setView("analyzing");
+      const r = await visionAnalyze({
+        detectedPlant: plantPrediction!.cropName,
+        userQuery: userQuery.trim(),
+        imageBase64,
+        imageMime,
+      });
+      if (r) {
+        setLastResult(r);
+        setView("result");
+      } else {
+        setView("form");
+      }
     } else {
-      setView("form"); // Error: regresar al formulario
+      // ─── Flujo SAG tradicional ─────────────────
+      if (!crop || !region) {
+        toast.warning("Completa el cultivo y la región.");
+        return;
+      }
+      setView("analyzing");
+      const r = await sagAnalyze({
+        imageBase64,
+        imageMime,
+        crop,
+        region,
+        symptoms,
+        usoTipo,
+        lat: coords?.lat,
+        lon: coords?.lon,
+      });
+      if (r) {
+        setLastResult(r);
+        setView("result");
+      } else {
+        setView("form");
+      }
     }
-  }, [imageBase64, imageMime, crop, region, symptoms, usoTipo, coords, analyze]);
+  }, [imageBase64, imageMime, crop, region, symptoms, userQuery, usoTipo, coords, isVisionMode, plantPrediction, visionAnalyze, sagAnalyze, toast]);
 
   const handleNewQuery = useCallback(() => {
-    reset();
+    sagReset();
+    visionReset();
     setImageBase64(null);
     setLastResult(null);
     setPlantPrediction(null);
@@ -190,7 +242,8 @@ export default function CameraPage() {
     setCrop("");
     setRegion("");
     setSymptoms("");
-  }, [reset]);
+    setUserQuery("");
+  }, [sagReset, visionReset]);
 
   if (authLoading || !user) return null;
 
@@ -211,16 +264,16 @@ export default function CameraPage() {
           </div>
 
           <h2 className="font-serif text-xl font-bold text-gray-900 mb-1">
-            Motor Surco IA activo
+            {isVisionMode ? `Analizando ${plantPrediction?.cropName ?? "planta"}` : "Motor Surco IA activo"}
           </h2>
           <p className="text-sm text-gray-500 mb-8">
-            Analizando tu planta
+            {isVisionMode ? "Usando manual técnico + IA" : "Analizando tu planta"}
           </p>
-          <p className="text-xs text-gray-400 mb-6 leading-relaxed">
-            La IA estudia la imagen y prepara
-            <br />
-            tu diagnóstico personalizado
-          </p>
+          {progressText && (
+            <p className="text-xs text-gray-400 mb-6 leading-relaxed">
+              {progressText}
+            </p>
+          )}
 
           {/* Barra de progreso */}
           <div className="w-full bg-gray-100 rounded-full h-2 mb-6 overflow-hidden">
@@ -232,31 +285,57 @@ export default function CameraPage() {
 
           {/* Steps */}
           <div className="space-y-3 text-left">
-            {[
-              { done: true, text: "Subiendo foto al servidor seguro" },
-              { done: progress >= 30, text: "Consultando catálogo SAG / INIA" },
-              { done: progress >= 50, text: "Analizando síntomas visuales" },
-              { done: progress >= 75, text: "Guardando en tu historial" },
-            ].map((step, i) => (
-              <div key={i} className="flex items-center gap-3">
-                <div
-                  className={`w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold transition-all ${
-                    step.done
-                      ? "bg-forest-500 text-white"
-                      : "bg-gray-100 text-gray-300"
-                  }`}
-                >
-                  {step.done ? "✓" : i + 1}
-                </div>
-                <span
-                  className={`text-sm ${
-                    step.done ? "text-gray-700" : "text-gray-400"
-                  }`}
-                >
-                  {step.text}
-                </span>
-              </div>
-            ))}
+            {isVisionMode
+              ? [
+                  { done: true, text: "Identificando planta con visión IA" },
+                  { done: progress >= 30, text: "Consultando manual técnico" },
+                  { done: progress >= 50, text: "Analizando síntomas reportados" },
+                  { done: progress >= 75, text: "Generando diagnóstico RAG" },
+                ].map((step, i) => (
+                  <div key={i} className="flex items-center gap-3">
+                    <div
+                      className={`w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold transition-all ${
+                        step.done
+                          ? "bg-forest-500 text-white"
+                          : "bg-gray-100 text-gray-300"
+                      }`}
+                    >
+                      {step.done ? "✓" : i + 1}
+                    </div>
+                    <span
+                      className={`text-sm ${
+                        step.done ? "text-gray-700" : "text-gray-400"
+                      }`}
+                    >
+                      {step.text}
+                    </span>
+                  </div>
+                ))
+              : [
+                  { done: true, text: "Subiendo foto al servidor seguro" },
+                  { done: progress >= 30, text: "Consultando catálogo SAG / INIA" },
+                  { done: progress >= 50, text: "Analizando síntomas visuales" },
+                  { done: progress >= 75, text: "Guardando en tu historial" },
+                ].map((step, i) => (
+                  <div key={i} className="flex items-center gap-3">
+                    <div
+                      className={`w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold transition-all ${
+                        step.done
+                          ? "bg-forest-500 text-white"
+                          : "bg-gray-100 text-gray-300"
+                      }`}
+                    >
+                      {step.done ? "✓" : i + 1}
+                    </div>
+                    <span
+                      className={`text-sm ${
+                        step.done ? "text-gray-700" : "text-gray-400"
+                      }`}
+                    >
+                      {step.text}
+                    </span>
+                  </div>
+                ))}
           </div>
         </div>
       </div>
@@ -284,6 +363,17 @@ export default function CameraPage() {
         </header>
 
         <main id="main-content" className="flex-1 px-5 pt-5 pb-8 overflow-y-auto" tabIndex={-1}>
+          {lastResult && "planta_detectada" in lastResult && (
+            <div className="bg-forest-50 border border-forest-200 rounded-xl px-4 py-2 mb-4 flex items-center gap-2">
+              <span className="text-lg">🌿</span>
+              <div className="text-sm">
+                <span className="font-semibold text-forest-800">
+                  {(lastResult as unknown as Record<string, string>).planta_detectada}
+                </span>
+                <span className="text-forest-600"> — Diagnóstico con visión IA + manual técnico</span>
+              </div>
+            </div>
+          )}
           <DiagnosisResult
             result={lastResult}
             crop={crop}
@@ -350,98 +440,32 @@ export default function CameraPage() {
           </>
         )}
 
-        {/* Contexto del cultivo */}
-        <div className="card p-5">
-          <h2 className="font-serif font-semibold text-gray-900 mb-4">
-            Contexto del cultivo
-          </h2>
-
-          <div className="space-y-3.5">
-            {/* Tipo de cultivo */}
-            <div>
-              <label className="text-xs font-medium text-gray-500 block mb-1.5">
-                Tipo de cultivo
-              </label>
-              <select
-                value={crop}
-                onChange={(e) => setCrop(e.target.value)}
-                className="select-field"
-              >
-                <option value="">— Seleccionar —</option>
-                {Object.entries(CULTIVOS_POR_CATEGORIA).map(([categoria, cultivos]) => (
-                  <optgroup key={categoria} label={categoria}>
-                    {cultivos.map((c) => (
-                      <option key={c} value={c}>
-                        {c}
-                      </option>
-                    ))}
-                  </optgroup>
-                ))}
-              </select>
-            </div>
-
-            {/* Región */}
-            <div>
-              <label className="text-xs font-medium text-gray-500 block mb-1.5">
-                Región
-              </label>
-              <select
-                value={region}
-                onChange={(e) => setRegion(e.target.value)}
-                className="select-field"
-              >
-                <option value="">— Seleccionar —</option>
-                {REGIONES.map((r) => (
-                  <option key={r} value={r}>
-                    {r}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* Uso */}
-            <div>
-              <label className="text-xs font-medium text-gray-500 block mb-1.5">
-                ¿Para qué usas la planta?
-              </label>
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  type="button"
-                  onClick={() => setUsoTipo("hogar")}
-                  className={`px-3 py-2.5 rounded-xl text-xs font-semibold border transition-all ${
-                    usoTipo === "hogar"
-                      ? "bg-forest-800 text-white border-forest-800"
-                      : "bg-white text-gray-600 border-gray-200 hover:border-gray-300"
-                  }`}
-                >
-                  Huerto doméstico / jardín
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setUsoTipo("produccion")}
-                  className={`px-3 py-2.5 rounded-xl text-xs font-semibold border transition-all ${
-                    usoTipo === "produccion"
-                      ? "bg-forest-800 text-white border-forest-800"
-                      : "bg-white text-gray-600 border-gray-200 hover:border-gray-300"
-                  }`}
-                >
-                  Producción agrícola
-                </button>
+        {isVisionMode ? (
+          // ─── Modo Visión: campo de consulta específico ─────
+          <div className="card p-5 border-forest-200 bg-forest-50/30">
+            <div className="flex items-center gap-2 mb-3">
+              <span className="text-lg">🌿</span>
+              <div>
+                <h2 className="font-serif font-semibold text-gray-900 text-sm">
+                  Diagnosticar {plantPrediction?.cropName}
+                </h2>
+                <p className="text-xs text-gray-500">
+                  Usando visión IA + manual técnico — confianza {(plantPrediction!.probability * 100).toFixed(0)}%
+                </p>
               </div>
             </div>
 
-            {/* Síntomas */}
             <div>
               <label className="text-xs font-medium text-gray-500 block mb-1.5">
-                ¿Qué observas? (opcional)
+                ¿Qué problema observas?
               </label>
               <div className="relative">
                 <textarea
-                  value={symptoms}
-                  onChange={(e) => setSymptoms(e.target.value)}
-                  placeholder="Describe los síntomas: manchas, color, textura..."
+                  value={userQuery}
+                  onChange={(e) => setUserQuery(e.target.value)}
+                  placeholder="Ej: hojas amarillas, manchas marrones, se están cayendo..."
                   rows={3}
-                  maxLength={500}
+                  maxLength={1000}
                   className="input-field resize-none pr-10"
                 />
                 <button
@@ -471,12 +495,192 @@ export default function CameraPage() {
               {isListening && (
                 <p className="text-xs text-warm-600 mt-1 flex items-center gap-1.5">
                   <span className="w-2 h-2 rounded-full bg-warm-500 animate-pulse" />
-                  Escuchando... habla los síntomas
+                  Escuchando... describe el problema
                 </p>
               )}
             </div>
+
+            <details className="mt-3">
+              <summary className="text-xs text-gray-400 cursor-pointer hover:text-gray-600">
+                Datos adicionales (región, uso)
+              </summary>
+              <div className="mt-3 space-y-3">
+                <div>
+                  <label className="text-xs font-medium text-gray-500 block mb-1.5">
+                    Región
+                  </label>
+                  <select
+                    value={region}
+                    onChange={(e) => setRegion(e.target.value)}
+                    className="select-field"
+                  >
+                    <option value="">— Sin especificar —</option>
+                    {REGIONES.map((r) => (
+                      <option key={r} value={r}>{r}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-gray-500 block mb-1.5">
+                    ¿Para qué usas la planta?
+                  </label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setUsoTipo("hogar")}
+                      className={`px-3 py-2.5 rounded-xl text-xs font-semibold border transition-all ${
+                        usoTipo === "hogar"
+                          ? "bg-forest-800 text-white border-forest-800"
+                          : "bg-white text-gray-600 border-gray-200 hover:border-gray-300"
+                      }`}
+                    >
+                      Huerto / jardín
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setUsoTipo("produccion")}
+                      className={`px-3 py-2.5 rounded-xl text-xs font-semibold border transition-all ${
+                        usoTipo === "produccion"
+                          ? "bg-forest-800 text-white border-forest-800"
+                          : "bg-white text-gray-600 border-gray-200 hover:border-gray-300"
+                      }`}
+                    >
+                      Producción
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </details>
           </div>
-        </div>
+        ) : (
+          // ─── Modo SAG tradicional ─────────────────────────
+          <div className="card p-5">
+            <h2 className="font-serif font-semibold text-gray-900 mb-4">
+              Contexto del cultivo
+            </h2>
+
+            <div className="space-y-3.5">
+              {/* Tipo de cultivo */}
+              <div>
+                <label className="text-xs font-medium text-gray-500 block mb-1.5">
+                  Tipo de cultivo
+                </label>
+                <select
+                  value={crop}
+                  onChange={(e) => setCrop(e.target.value)}
+                  className="select-field"
+                >
+                  <option value="">— Seleccionar —</option>
+                  {Object.entries(CULTIVOS_POR_CATEGORIA).map(([categoria, cultivos]) => (
+                    <optgroup key={categoria} label={categoria}>
+                      {cultivos.map((c) => (
+                        <option key={c} value={c}>
+                          {c}
+                        </option>
+                      ))}
+                    </optgroup>
+                  ))}
+                </select>
+              </div>
+
+              {/* Región */}
+              <div>
+                <label className="text-xs font-medium text-gray-500 block mb-1.5">
+                  Región
+                </label>
+                <select
+                  value={region}
+                  onChange={(e) => setRegion(e.target.value)}
+                  className="select-field"
+                >
+                  <option value="">— Seleccionar —</option>
+                  {REGIONES.map((r) => (
+                    <option key={r} value={r}>
+                      {r}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Uso */}
+              <div>
+                <label className="text-xs font-medium text-gray-500 block mb-1.5">
+                  ¿Para qué usas la planta?
+                </label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setUsoTipo("hogar")}
+                    className={`px-3 py-2.5 rounded-xl text-xs font-semibold border transition-all ${
+                      usoTipo === "hogar"
+                        ? "bg-forest-800 text-white border-forest-800"
+                        : "bg-white text-gray-600 border-gray-200 hover:border-gray-300"
+                    }`}
+                  >
+                    Huerto doméstico / jardín
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setUsoTipo("produccion")}
+                    className={`px-3 py-2.5 rounded-xl text-xs font-semibold border transition-all ${
+                      usoTipo === "produccion"
+                        ? "bg-forest-800 text-white border-forest-800"
+                        : "bg-white text-gray-600 border-gray-200 hover:border-gray-300"
+                    }`}
+                  >
+                    Producción agrícola
+                  </button>
+                </div>
+              </div>
+
+              {/* Síntomas */}
+              <div>
+                <label className="text-xs font-medium text-gray-500 block mb-1.5">
+                  ¿Qué observas? (opcional)
+                </label>
+                <div className="relative">
+                  <textarea
+                    value={symptoms}
+                    onChange={(e) => setSymptoms(e.target.value)}
+                    placeholder="Describe los síntomas: manchas, color, textura..."
+                    rows={3}
+                    maxLength={500}
+                    className="input-field resize-none pr-10"
+                  />
+                  <button
+                    type="button"
+                    onClick={toggleVoice}
+                    className={`absolute bottom-2.5 right-2.5 w-8 h-8 rounded-full flex items-center justify-center text-sm transition-all ${
+                      isListening
+                        ? "bg-warm-50 text-warm-700"
+                        : "bg-white text-gray-400 hover:bg-gray-100"
+                    }`}
+                    title="Dictar por voz"
+                  >
+                    {isListening ? (
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                        <rect x="6" y="6" width="12" height="12" rx="2"/>
+                      </svg>
+                    ) : (
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+                        <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+                        <line x1="12" y1="19" x2="12" y2="23"/>
+                        <line x1="8" y1="23" x2="16" y2="23"/>
+                      </svg>
+                    )}
+                  </button>
+                </div>
+                {isListening && (
+                  <p className="text-xs text-warm-600 mt-1 flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-warm-500 animate-pulse" />
+                    Escuchando... habla los síntomas
+                  </p>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Error */}
         {error && (
@@ -489,7 +693,13 @@ export default function CameraPage() {
         <button
           type="button"
           onClick={handleAnalyze}
-          disabled={!imageBase64 || !crop || !region || analyzing}
+          disabled={
+            !imageBase64 ||
+            analyzing ||
+            (isVisionMode
+              ? !userQuery.trim()
+              : !crop || !region)
+          }
           className="btn-primary !rounded-2xl !py-4 !text-base"
         >
           {analyzing ? (
@@ -497,6 +707,8 @@ export default function CameraPage() {
               <span className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
               Analizando...
             </>
+          ) : isVisionMode ? (
+            <>🔬 Diagnosticar {plantPrediction?.cropName ?? "planta"}</>
           ) : (
             "Analizar con IA"
           )}
