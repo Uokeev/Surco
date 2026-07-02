@@ -5,7 +5,7 @@ import { buscarEnfermedadesSAG, construirPromptDiagnostico } from "@/lib/sag";
 import { formatearClimaContexto } from "@/lib/weather";
 import { validarImagenBase64, sanitizarTexto } from "@/lib/utils";
 import { checkRateLimit, userKey } from "@/lib/rate-limit";
-import type { DiagnosticoResult, ApiResponse } from "@/types";
+import type { DiagnosticoResult, ApiResponse, CondicionesClimaticas } from "@/types";
 
 // ─── Validación con Zod ──────────────────────────────
 const DiagnoseSchema = z.object({
@@ -127,11 +127,13 @@ export async function POST(
 
     // ─── 5. Obtener clima (si hay coordenadas) ────
     let climaStr: string | undefined;
+    let climaData: CondicionesClimaticas | undefined;
     if (lat !== undefined && lon !== undefined) {
       try {
         const { obtenerClima } = await import("@/lib/weather");
         const clima = await obtenerClima({ lat, lon });
         if (clima) {
+          climaData = clima;
           climaStr = formatearClimaContexto(clima);
         }
       } catch {
@@ -243,7 +245,7 @@ export async function POST(
         crop: cropSanitized,
         region: regionSanitized,
         symptoms: symptomsSanitized || null,
-        clima: climaStr ? { ...JSON.parse(climaStr) } : null,
+        clima: climaData ?? null,
         enfermedad: result.enfermedad,
         nombre_cientifico: result.nombre_cientifico ?? null,
         severidad: result.severidad ?? "Media",
