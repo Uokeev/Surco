@@ -195,31 +195,56 @@ export async function POST(
       );
     }
 
-    const workerData = await workerResponse.json();
-
-    // ─── 8. Parsear respuesta del Worker ──────────
-    // El Worker devuelve: { content: [{ text: "..." }] } (OpenAI-compatible)
-    // o directamente { enfermedad: "...", ... }
-    let rawText: string;
-    if (workerData.content && Array.isArray(workerData.content)) {
-      rawText = workerData.content.map((b: { text?: string }) => b.text ?? "").join("");
-    } else if (workerData.text) {
-      rawText = workerData.text;
-    } else if (workerData.enfermedad) {
-      // Ya viene parseado
-      rawText = JSON.stringify(workerData);
-    } else {
-      rawText = JSON.stringify(workerData);
+    let workerData: unknown;
+    try {
+      workerData = await workerResponse.json();
+    } catch {
+      const rawBody = await workerResponse.text().catch(() => "No se pudo leer");
+      console.error("[Diagnose] Worker respondió con cuerpo no-JSON:", rawBody.substring(0, 500));
+      return NextResponse.json(
+        { ok: false, error: "Error al procesar el diagnóstico. Intenta de nuevo." },
+        { status: 502 }
+      );
     }
 
-    // Limpiar posibles backticks JSON
-    const cleanedText = rawText.replace(/```json|```/g, "").trim();
+    // ─── 8. Extraer texto del Worker ──────────────
+    // Formatos aceptados:
+    //   OpenAI:       { content: [{ text: "..." }] }
+    //   Cloudflare AI:{ result: { response: "..." } }
+    //   Raw text:     { text: "..." }
+    //   Ya parseado:  { enfermedad: "...", ... }
+    let rawText: string | null = null;
+
+    // Cloudflare Workers AI / OpenAI compatible
+    const wd = workerData as Record<string, unknown>;
+    if (wd.content && Array.isArray(wd.content)) {
+      rawText = wd.content.map((b: Record<string, unknown>) => String(b.text ?? "")).join("");
+    } else if (wd.result && typeof wd.result === "object") {
+      const r = wd.result as Record<string, unknown>;
+      rawText = String(r.response ?? r.text ?? "");
+    } else if (wd.response && typeof wd.response === "string") {
+      rawText = wd.response;
+    } else if (wd.text && typeof wd.text === "string") {
+      rawText = wd.text;
+    } else if (wd.enfermedad) {
+      // Ya viene parseado como DiagnosticoResult
+      rawText = JSON.stringify(wd);
+    }
+
+    // Fallback: serializar todo
+    if (!rawText) {
+      rawText = JSON.stringify(wd);
+    }
+
+    // Limpiar posibles backticks y espacios alrededor
+    const cleanedText = rawText.replace(/```(?:json)?/gi, "").trim();
 
     let result: DiagnosticoResult;
     try {
       result = JSON.parse(cleanedText) as DiagnosticoResult;
-    } catch {
-      console.error("Error parseando respuesta de IA:", cleanedText.substring(0, 300));
+    } catch (parseErr) {
+      console.error("[Diagnose] Error parseando respuesta de IA. CleanedText:", cleanedText.substring(0, 500));
+      console.error("[Diagnose] WorkerData completo:", JSON.stringify(wd).substring(0, 1000));
       return NextResponse.json(
         { ok: false, error: "Error al procesar el diagnóstico. Intenta de nuevo." },
         { status: 502 }
