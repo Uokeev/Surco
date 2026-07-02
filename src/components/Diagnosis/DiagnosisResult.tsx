@@ -197,82 +197,64 @@ export function DiagnosisResult({
       {/* Calculadora de dosis */}
       <Calculator tratamientos={pasos} />
 
-      {/* Links de búsqueda */}
+      {/* Links de búsqueda — versión mobile-friendly */}
       {pasos.length > 0 && (
         <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm">
-          <h3 className="text-sm font-bold text-gray-900 mb-3">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="inline-block -mt-0.5 mr-1" aria-hidden="true">
-              <circle cx="9" cy="21" r="1"/>
-              <circle cx="20" cy="21" r="1"/>
-              <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/>
-            </svg>
-            Buscar productos online
+          <h3 className="text-sm font-bold text-gray-900 mb-1">
+            🛒 Dónde comprar
           </h3>
-          <div className="space-y-3">
+          <p className="text-xs text-gray-500 mb-4">
+            Toque un producto para buscarlo en MercadoLibre Chile
+          </p>
+
+          <div className="space-y-2">
             {pasos.map((paso, i) => {
               const nombreProducto =
                 paso.split("—")[1]?.split(":")[0]?.trim() ??
                 paso.split(":")[0]?.replace(/^Paso \d+/, "").trim() ??
                 paso.substring(0, 40);
               const queryML = encodeURIComponent(
-                nombreProducto + " fungicida plaguicida Chile"
-              );
-              const queryGoo = encodeURIComponent(
-                nombreProducto + " precio Chile"
+                nombreProducto + " Chile"
               );
 
               return (
-                <div
+                <a
                   key={i}
-                  className="pb-3 border-b border-gray-100 last:border-0 last:pb-0"
+                  href={`https://listado.mercadolibre.cl/${queryML}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-3 bg-[#fff159]/80 hover:bg-[#fff159] border border-yellow-300 rounded-xl px-4 py-3.5 transition-colors active:scale-[0.98]"
                 >
-                  <p className="text-sm font-medium text-gray-800 mb-2">
-                    Paso {i + 1}: {nombreProducto}
-                  </p>
-                  <div className="flex gap-2 flex-wrap">
-                    <a
-                      href={`https://listado.mercadolibre.cl/${queryML}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1.5 bg-[#fff159] text-gray-800 rounded-lg px-3 py-1.5 text-xs font-semibold hover:brightness-95 transition-all"
-                    >
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="inline-block -mt-0.5" aria-hidden="true">
-                        <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/>
-                        <line x1="3" y1="6" x2="21" y2="6"/>
-                        <path d="M16 10a4 4 0 0 1-8 0"/>
-                      </svg>
-                      MercadoLibre
-                    </a>
-                    <a
-                      href={`https://www.google.com/search?q=${queryGoo}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1.5 bg-gray-100 text-gray-700 rounded-lg px-3 py-1.5 text-xs font-semibold hover:bg-gray-200 transition-all"
-                    >
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="inline-block -mt-0.5" aria-hidden="true">
-                        <circle cx="11" cy="11" r="8"/>
-                        <path d="m21 21-4.3-4.3"/>
-                      </svg>
-                      Google
-                    </a>
-                    <a
-                      href={`https://www.mercadopublico.cl/`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1.5 bg-forest-50 text-forest-800 rounded-lg px-3 py-1.5 text-xs font-semibold hover:bg-forest-100 transition-all"
-                    >
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="inline-block -mt-0.5" aria-hidden="true">
-                        <path d="M12 22V8"/>
-                        <path d="M12 8c-2.5 0-5-2-5-5 0 3 1 5 5 6"/>
-                        <path d="M12 8c2.5 0 5-2 5-5 0 3-1 5-5 6"/>
-                      </svg>
-                      Tienda agrícola
-                    </a>
+                  <span className="w-8 h-8 rounded-full bg-yellow-400 flex items-center justify-center text-base shrink-0">
+                    {i + 1}
+                  </span>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-gray-800 truncate">
+                      {nombreProducto}
+                    </p>
+                    <p className="text-xs text-gray-500">
+                      Ver en MercadoLibre →
+                    </p>
                   </div>
-                </div>
+                </a>
               );
             })}
           </div>
+
+          {/* Pie con Google como alternativa secundaria */}
+          <p className="text-xs text-gray-400 text-center mt-3">
+            ¿No encuentras?{' '}
+            <a
+              href={`https://www.google.com/search?q=${encodeURIComponent(
+                pasos.map(p => p.split("—")[1]?.split(":")[0]?.trim() ?? p.substring(0, 30)).filter(Boolean).join(" ")
+              )} Chile`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-forest-700 underline underline-offset-2 hover:text-forest-800 font-medium"
+            >
+              Buscar en Google
+            </a>
+          </p>
         </div>
       )}
 
@@ -281,9 +263,9 @@ export function DiagnosisResult({
         href={mapsQuery}
         target="_blank"
         rel="noopener noreferrer"
-        className="block w-full bg-forest-800 text-white rounded-xl py-3.5 px-5 text-sm font-semibold text-center hover:bg-forest-700 transition-colors"
+        className="flex items-center justify-center gap-2.5 bg-forest-800 text-white rounded-xl py-4 px-5 text-sm font-semibold text-center hover:bg-forest-700 transition-colors active:scale-[0.98]"
       >
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="inline-block -mt-0.5 mr-1" aria-hidden="true">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
           <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
           <circle cx="12" cy="10" r="3"/>
         </svg>
