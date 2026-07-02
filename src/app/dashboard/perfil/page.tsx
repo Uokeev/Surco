@@ -99,6 +99,7 @@ export default function PerfilPage() {
     }
 
     const unidad = tipoTerreno === "parcela" ? "hectareas" : "m2";
+    const esPrimeraVez = !resumen?.datos_parcela_completos;
 
     setSaving(true);
     try {
@@ -118,15 +119,24 @@ export default function PerfilPage() {
 
       if (error) throw error;
 
-      // Otorgar puntos por completar perfil (con nonce único para idempotencia)
-      const nonce = `${user.id}-PERFIL_PARCELA-${new Date().toISOString().split("T")[0]}`;
-      await fetch("/api/club/puntos", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ codigo: "PERFIL_PARCELA", referencia_id: nonce }),
-      });
-
-      toast.success("✅ Datos guardados. ¡Ganaste 150 semillas!");
+      // ═══ Solo otorgar puntos la PRIMERA vez que completa el perfil ═══
+      if (esPrimeraVez) {
+        const nonce = `${user.id}-PERFIL_PARCELA-ONCE`;
+        const res = await fetch("/api/club/puntos", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ codigo: "PERFIL_PARCELA", referencia_id: nonce }),
+        });
+        const data = await res.json();
+        if (data.ok) {
+          toast.success("✅ Datos guardados. ¡Ganaste 150 semillas!");
+        } else {
+          // Si el RPC detectó duplicado (nonce ya usado), igual fue éxito
+          toast.success("✅ Datos del terreno actualizados.");
+        }
+      } else {
+        toast.success("✅ Datos del terreno actualizados.");
+      }
       loadData();
     } catch (e) {
       console.error("Error guardando datos de terreno:", e);
@@ -134,7 +144,7 @@ export default function PerfilPage() {
     } finally {
       setSaving(false);
     }
-  }, [user, tipoTerreno, region, cultivo, terrenoSize, loadData]);
+  }, [user, tipoTerreno, region, cultivo, terrenoSize, resumen?.datos_parcela_completos, loadData]);
 
   const handleVerificarRut = useCallback(async () => {
     if (!user || !rut.trim()) {
@@ -442,14 +452,24 @@ export default function PerfilPage() {
                   type="button"
                   onClick={handleGuardarParcela}
                   disabled={saving}
-                  className="btn-primary !rounded-xl !py-3"
+                  className={`btn-primary !rounded-xl !py-3 ${
+                    resumen?.datos_parcela_completos
+                      ? "bg-amber-600 hover:bg-amber-700"
+                      : ""
+                  }`}
                 >
-                  {saving ? "Guardando..." : "Guardar datos del terreno"}
+                  {saving
+                    ? "Guardando..."
+                    : resumen?.datos_parcela_completos
+                      ? "✏️ Editar datos del terreno"
+                      : "Guardar datos del terreno"}
                 </button>
 
-                {resumen?.datos_parcela_completos && (
+                {(!resumen?.datos_parcela_completos || saving) && (
                   <p className="text-xs text-forest-700 bg-forest-50 rounded-lg p-3 text-center font-medium">
-                    🎉 Ganaste 150 semillas por completar tu perfil
+                    {resumen?.datos_parcela_completos
+                      ? "🔄 Actualiza tus datos de terreno cuando sea necesario"
+                      : "🎉 Gana 150 semillas al completar tu perfil por primera vez"}
                   </p>
                 )}
               </div>
