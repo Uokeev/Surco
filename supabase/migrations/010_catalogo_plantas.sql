@@ -58,7 +58,7 @@ CREATE INDEX IF NOT EXISTS idx_catalogo_plantas_nombre ON catalogo_plantas (nomb
 -- ============================================================
 CREATE TABLE IF NOT EXISTS plagas_enfermedades (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  nombre TEXT NOT NULL,
+  nombre TEXT NOT NULL UNIQUE,
   nombre_cientifico TEXT DEFAULT '',
   tipo TEXT NOT NULL CHECK (tipo IN ('plaga', 'enfermedad', 'fisiopatia')),
   sintomas TEXT NOT NULL DEFAULT '',
@@ -105,7 +105,8 @@ CREATE TABLE IF NOT EXISTS alertas_temporada (
   mensaje TEXT NOT NULL,
   acciones TEXT[] DEFAULT '{}',
   activo BOOLEAN DEFAULT TRUE,
-  created_at TIMESTAMPTZ DEFAULT now()
+  created_at TIMESTAMPTZ DEFAULT now(),
+  UNIQUE (temporada, titulo)
 );
 
 ALTER TABLE alertas_temporada ENABLE ROW LEVEL SECURITY;
@@ -253,7 +254,12 @@ VALUES
   'Urgente — intervención única.',
   'Usar macetas con múltiples agujeros de drenaje. Sustrato aireado. Verificar humedad antes de regar.'
 )
-ON CONFLICT DO NOTHING;
+ON CONFLICT ON CONSTRAINT plagas_enfermedades_nombre_key DO NOTHING;
+
+-- Poblar tratamiento_principal donde quede vacío (misma info que primeros_auxilios en este grupo)
+UPDATE plagas_enfermedades
+SET tratamiento_principal = primeros_auxilios
+WHERE tratamiento_principal IS NULL OR tratamiento_principal = '';
 
 -- ============================================================
 -- 7. RELACIONAR PLAGAS CON PLANTAS
@@ -264,7 +270,7 @@ SELECT p.id, pl.id
 FROM catalogo_plantas p, plagas_enfermedades pl
 WHERE p.nombre = 'Singonio Confetti'
   AND pl.nombre IN ('Trips', 'Cochinilla Algodonosa', 'Arañita Roja', 'Fumagina (Negrilla)', 'Pudrición de Raíces')
-ON CONFLICT DO NOTHING;
+ON CONFLICT ON CONSTRAINT plagas_por_planta_planta_id_plaga_id_key DO NOTHING;
 
 -- Filodendro Micans → todas las plagas
 INSERT INTO plagas_por_planta (planta_id, plaga_id)
@@ -272,7 +278,7 @@ SELECT p.id, pl.id
 FROM catalogo_plantas p, plagas_enfermedades pl
 WHERE p.nombre = 'Filodendro Micans'
   AND pl.nombre IN ('Trips', 'Cochinilla Algodonosa', 'Arañita Roja', 'Fumagina (Negrilla)', 'Pudrición de Raíces')
-ON CONFLICT DO NOTHING;
+ON CONFLICT ON CONSTRAINT plagas_por_planta_planta_id_plaga_id_key DO NOTHING;
 
 -- Potus N'Joy → todas las plagas
 INSERT INTO plagas_por_planta (planta_id, plaga_id)
@@ -280,7 +286,7 @@ SELECT p.id, pl.id
 FROM catalogo_plantas p, plagas_enfermedades pl
 WHERE p.nombre = 'Potus N''Joy'
   AND pl.nombre IN ('Trips', 'Cochinilla Algodonosa', 'Arañita Roja', 'Fumagina (Negrilla)', 'Pudrición de Raíces')
-ON CONFLICT DO NOTHING;
+ON CONFLICT ON CONSTRAINT plagas_por_planta_planta_id_plaga_id_key DO NOTHING;
 
 -- ============================================================
 -- 8. INSERTAR ALERTAS ESTACIONALES
@@ -333,7 +339,7 @@ VALUES
     'Podar solo lo necesario — guardar podas grandes para primavera.'
   ]
 )
-ON CONFLICT DO NOTHING;
+ON CONFLICT ON CONSTRAINT alertas_temporada_temporada_titulo_key DO NOTHING;
 
 -- ============================================================
 -- 9. FUNCIÓN: obtener plagas de una planta por nombre
@@ -354,7 +360,7 @@ BEGIN
     pe.nombre,
     pe.tipo,
     pe.sintomas,
-    pe.tratamiento_principal,
+    COALESCE(NULLIF(pe.tratamiento_principal, ''), pe.primeros_auxilios),
     pe.tratamiento_frecuencia
   FROM plagas_por_planta ppp
   JOIN plagas_enfermedades pe ON pe.id = ppp.plaga_id
