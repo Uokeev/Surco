@@ -12,6 +12,7 @@ import { useDiagnosisVision } from "@/hooks/useDiagnosisVision";
 import { useToastHelpers } from "@/components/ui/Toast";
 import { PlantIdentifier, PlantIdentificationBadge } from "@/components/Plantas/PlantIdentifier";
 import { buscarManual } from "@/data/manuales-plantas";
+import { getSupabaseClient } from "@/lib/supabase/client";
 import type { PlantPrediction } from "@/hooks/usePlantIdentifier";
 import type { DiagnosticoResult, UsoTipo } from "@/types";
 import { CULTIVOS_POR_CATEGORIA, REGIONES } from "@/lib/constants";
@@ -50,6 +51,20 @@ export default function CameraPage() {
 
   const [view, setView] = useState<"form" | "analyzing" | "result">("form");
   const [lastResult, setLastResult] = useState<DiagnosticoResult | null>(null);
+
+  // Guardar región en user_metadata al cambiar
+  const handleRegionChange = useCallback((nuevaRegion: string) => {
+    setRegion(nuevaRegion);
+    if (nuevaRegion && user) {
+      const supabase = getSupabaseClient();
+      supabase.auth.updateUser({
+        data: {
+          ...user.user_metadata,
+          saved_region: nuevaRegion,
+        },
+      }).catch(() => {});
+    }
+  }, [user]);
 
   // ─── Identificación de plantas con TM ──────────────
   const [plantPrediction, setPlantPrediction] = useState<PlantPrediction | null>(null);
@@ -113,6 +128,14 @@ export default function CameraPage() {
       router.replace("/");
     }
   }, [user, authLoading, router]);
+
+  // Restaurar región guardada al montar
+  useEffect(() => {
+    const savedRegion = user?.user_metadata?.saved_region as string | undefined;
+    if (savedRegion && !region) {
+      setRegion(savedRegion);
+    }
+  }, [user, region]);
 
   // Cleanup recognition on unmount
   useEffect(() => {
@@ -240,7 +263,7 @@ export default function CameraPage() {
     setImgElement(null);
     setView("form");
     setCrop("");
-    setRegion("");
+    // No reseteamos región: se conserva la guardada en metadata
     setSymptoms("");
     setUserQuery("");
   }, [sagReset, visionReset]);
@@ -511,7 +534,7 @@ export default function CameraPage() {
                   </label>
                   <select
                     value={region}
-                    onChange={(e) => setRegion(e.target.value)}
+                    onChange={(e) => handleRegionChange(e.target.value)}
                     className="select-field"
                   >
                     <option value="">— Sin especificar —</option>
@@ -590,7 +613,7 @@ export default function CameraPage() {
                 </label>
                 <select
                   value={region}
-                  onChange={(e) => setRegion(e.target.value)}
+                  onChange={(e) => handleRegionChange(e.target.value)}
                   className="select-field"
                 >
                   <option value="">— Seleccionar —</option>
