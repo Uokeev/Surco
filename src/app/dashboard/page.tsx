@@ -12,7 +12,7 @@ import { EmptyState } from "@/components/ui/EmptyState";
 export default function DashboardPage() {
   const { user, loading, signOut } = useAuth();
   const router = useRouter();
-  const { weather, loading: weatherLoading, requestLocation } = useWeather();
+  const { weather, loading: weatherLoading, error: weatherError, requestLocation } = useWeather();
   const [historial, setHistorial] = useState<Diagnostico[]>([]);
   const [historialLoading, setHistorialLoading] = useState(true);
   const [historialError, setHistorialError] = useState<string | null>(null);
@@ -316,6 +316,7 @@ export default function DashboardPage() {
         <WeatherWidget
           weather={weather}
           loading={weatherLoading}
+          error={weatherError}
           onRequestLocation={requestLocation}
         />
 

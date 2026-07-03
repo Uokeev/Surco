@@ -1,17 +1,18 @@
 "use client";
 
-import { useEffect } from "react";
 import type { CondicionesClimaticas } from "@/types";
 
 interface WeatherWidgetProps {
   weather: CondicionesClimaticas | null;
   loading: boolean;
+  error: string | null;
   onRequestLocation: () => void;
 }
 
 export function WeatherWidget({
   weather,
   loading,
+  error,
   onRequestLocation,
 }: WeatherWidgetProps) {
   return (
@@ -45,6 +46,13 @@ export function WeatherWidget({
           </>
         )}
       </button>
+
+      {error && (
+        <div className="mt-2 px-3 py-2 bg-red-50 border border-red-200 rounded-lg text-xs text-red-700 flex items-start gap-1.5" role="alert">
+          <span className="shrink-0 mt-0.5">⚠️</span>
+          <span>{error}</span>
+        </div>
+      )}
 
       {weather && (
         <div className="mt-3 bg-white rounded-xl border border-gray-100 p-4 shadow-sm">

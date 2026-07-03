@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { getAuthenticatedUser } from "@/lib/supabase/server";
 import { obtenerClima } from "@/lib/weather";
-import { checkRateLimit, ipKey } from "@/lib/rate-limit";
 import type { ApiResponse, CondicionesClimaticas } from "@/types";
 
 const WeatherSchema = z.object({

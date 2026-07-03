@@ -20,7 +20,7 @@ import { CULTIVOS_POR_CATEGORIA, REGIONES } from "@/lib/constants";
 export default function CameraPage() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
-  const { weather, loading: weatherLoading, coords, requestLocation } = useWeather();
+  const { weather, loading: weatherLoading, error: weatherError, coords, requestLocation } = useWeather();
   const {
     analyzing: sagAnalyzing,
     progress: sagProgress,
@@ -436,6 +436,7 @@ export default function CameraPage() {
         <WeatherWidget
           weather={weather}
           loading={weatherLoading}
+          error={weatherError}
           onRequestLocation={requestLocation}
         />
 
