@@ -20,6 +20,8 @@ export default function DashboardPage() {
   const [alertasError, setAlertasError] = useState<string | null>(null);
   const [showClubCard, setShowClubCard] = useState(false);
   const [nivelSurco, setNivelSurco] = useState<string | null>(null);
+  const [planInfo, setPlanInfo] = useState<{ plan: string; usados: number; limite: number } | null>(null);
+  const [showAllHistorial, setShowAllHistorial] = useState(false);
 
   const userName = user?.user_metadata?.full_name as string | undefined;
   const userPhoto = user?.user_metadata?.avatar_url as string | undefined;
@@ -88,6 +90,27 @@ export default function DashboardPage() {
     }
   }, [user]);
 
+  const loadPlanInfo = useCallback(async () => {
+    if (!user) return;
+    try {
+      const supabase = getSupabaseClient();
+      const { data } = await supabase
+        .from("users")
+        .select("plan, diagnosticos_usados, diagnosticos_limite")
+        .eq("id", user.id)
+        .single();
+      if (data) {
+        const d = data as { plan: string; diagnosticos_usados: number; diagnosticos_limite: number };
+        setPlanInfo({ plan: d.plan, usados: d.diagnosticos_usados, limite: d.diagnosticos_limite });
+      } else {
+        // Si no existe en users, asumir gratuito con límite por defecto
+        setPlanInfo({ plan: "gratuito", usados: 0, limite: 10 });
+      }
+    } catch {
+      setPlanInfo({ plan: "gratuito", usados: 0, limite: 10 });
+    }
+  }, [user]);
+
   const handleJoinClub = useCallback(async () => {
     try {
       const supabase = getSupabaseClient();
@@ -131,11 +154,14 @@ export default function DashboardPage() {
       loadNivelSurco().then(() => {
         if (cancelled) return;
       });
+      loadPlanInfo().then(() => {
+        if (cancelled) return;
+      });
     }
     return () => {
       cancelled = true;
     };
-  }, [user, loading, router, loadHistory, loadAlertas, loadNivelSurco]);
+  }, [user, loading, router, loadHistory, loadAlertas, loadNivelSurco, loadPlanInfo]);
 
   if (loading || !user) {
     return (
@@ -245,17 +271,46 @@ export default function DashboardPage() {
         <div className="card p-4 flex items-center justify-between">
           <div>
             <p className="text-xs text-gray-500">Tu plan</p>
-            <p className="font-serif font-semibold text-gray-900">
-              Gratuito · Demo
+            <p className="font-serif font-semibold text-gray-900 capitalize">
+              {planInfo?.plan ?? "Gratuito"}
             </p>
           </div>
           <div className="text-right">
             <div className="font-serif text-3xl font-bold text-forest-800 leading-none">
-              ∞
+              {planInfo ? planInfo.limite - planInfo.usados : "—"}
             </div>
-            <p className="text-xs text-gray-500">diagnósticos en demo</p>
+            <p className="text-xs text-gray-500">
+              {planInfo
+                ? `${planInfo.usados} de ${planInfo.limite} diagnósticos usados`
+                : "cargando..."}
+            </p>
           </div>
         </div>
+        {planInfo && planInfo.limite > 0 && (
+          <>
+            <div className="w-full bg-gray-100 rounded-full h-1 overflow-hidden -mt-3">
+              <div
+                className={`h-full rounded-full transition-all ${
+                  (planInfo.usados / planInfo.limite) > 0.8
+                    ? "bg-red-500"
+                    : (planInfo.usados / planInfo.limite) > 0.6
+                      ? "bg-warm-500"
+                      : "bg-forest-500"
+                }`}
+                style={{ width: `${Math.min((planInfo.usados / planInfo.limite) * 100, 100)}%` }}
+              />
+            </div>
+            {(planInfo.usados / planInfo.limite) > 0.7 && (
+              <button
+                type="button"
+                onClick={() => router.push("/dashboard/planes")}
+                className="text-xs font-medium text-forest-600 hover:text-forest-700 mt-1 text-center w-full underline underline-offset-2"
+              >
+                Estás cerca del límite — mejora tu plan
+              </button>
+            )}
+          </>
+        )}
 
         {/* Weather */}
         <WeatherWidget
@@ -391,13 +446,22 @@ export default function DashboardPage() {
         <section>
           <div className="flex items-center justify-between mb-2">
             <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wider !mb-0">Historial reciente</h2>
-            {historial.length > 2 && (
+            {historial.length > 2 && !showAllHistorial && (
               <button
                 type="button"
-                onClick={() => router.push("/dashboard")}
+                onClick={() => setShowAllHistorial(true)}
                 className="text-xs font-medium text-forest-600 hover:text-forest-700"
               >
-                Ver todo →
+                Ver todo ({historial.length}) →
+              </button>
+            )}
+            {showAllHistorial && historial.length > 2 && (
+              <button
+                type="button"
+                onClick={() => setShowAllHistorial(false)}
+                className="text-xs font-medium text-gray-500 hover:text-gray-700"
+              >
+                Mostrar menos ↑
               </button>
             )}
           </div>
@@ -416,7 +480,7 @@ export default function DashboardPage() {
             </p>
           ) : (
             <div className="space-y-1.5">
-              {historial.slice(0, 2).map((h) => {
+              {historial.slice(0, showAllHistorial ? historial.length : 2).map((h) => {
                 const sevClass =
                   h.severidad === "Alta"
                     ? "bg-red-500"
