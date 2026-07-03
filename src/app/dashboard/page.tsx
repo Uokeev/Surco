@@ -74,6 +74,11 @@ export default function DashboardPage() {
       router.replace("/");
       return;
     }
+    // Redirigir a onboarding si no lo ha completado
+    if (user && !user.user_metadata?.onboarding_completado) {
+      router.replace("/onboarding");
+      return;
+    }
     let cancelled = false;
     if (user) {
       loadHistory().then(() => {
