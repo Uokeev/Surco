@@ -101,6 +101,8 @@ export default function BeneficiosPage() {
         partner?: string;
         costo?: number;
         saldo_restante?: number;
+        diagnosticos_extra?: number;
+        nuevo_limite?: number;
       };
 
       if (!result.ok) {
@@ -108,10 +110,18 @@ export default function BeneficiosPage() {
         return;
       }
 
-      toast.success(
-        `Canje exitoso: ${result.item} (código: ${result.codigo_canje}). ` +
-        `Te contactará ${result.partner}.`
-      );
+      // Mensaje específico para diagnósticos extra
+      if (result.diagnosticos_extra && result.diagnosticos_extra > 0) {
+        toast.success(
+          `¡Canje exitoso! Obtuviste +${result.diagnosticos_extra} diagnósticos extra. ` +
+          `Ahora tienes ${result.nuevo_limite} diagnósticos disponibles este mes.`
+        );
+      } else {
+        toast.success(
+          `Canje exitoso: ${result.item} (código: ${result.codigo_canje}). ` +
+          `Te contactará ${result.partner}.`
+        );
+      }
       loadData(); // Recargar
     } catch (e) {
       console.error("Error al canjear:", e);
