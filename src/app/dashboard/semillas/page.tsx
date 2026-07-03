@@ -85,7 +85,7 @@ export default function SemillasPage() {
   if (authLoading || !user) return null;
 
   const tieneSemillas = semillas.some((s) => s.cantidad > 0);
-  const totalPuntos = resumen?.semillas_acumuladas ?? 0;
+  const totalSemillas = resumen?.semillas_acumuladas ?? 0;
 
   const semillasPorTipo = [
     { tipo: "basica", cantidad: semillas.find((s) => s.tipo === "basica")?.cantidad ?? 0, emoji: "🟢" },
@@ -117,15 +117,15 @@ export default function SemillasPage() {
         >
           ←
         </button>
-        <h1 className="font-serif text-xl font-bold text-white">Club Surco</h1>
+        <h1 className="font-serif text-xl font-bold text-white">Surco Semillas</h1>
         <p className="text-xs text-white/50 mt-1">
-          Gana puntos por usar la app y canjéalos por beneficios
+          Gana semillas por usar la app y canjéalas por beneficios
         </p>
 
-        {/* Puntaje total — ÚNICO número importante */}
+        {/* Total de semillas — número único */}
         <div className="mt-4 bg-white/10 backdrop-blur-sm rounded-xl p-4 text-center">
-          <p className="text-xs text-white/50">Tus puntos</p>
-          <p className="text-4xl font-bold text-white mt-0.5">{totalPuntos}</p>
+          <p className="text-xs text-white/50">Tus semillas</p>
+          <p className="text-4xl font-bold text-white mt-0.5">{totalSemillas}</p>
 
           {/* Barra de nivel */}
           {resumen && (
@@ -148,11 +148,11 @@ export default function SemillasPage() {
           <div className="flex items-center justify-center py-12">
             <div className="w-6 h-6 border-2 border-forest-600 border-t-transparent rounded-full animate-spin" />
           </div>
-        ) : !tieneSemillas && totalPuntos === 0 ? (
+        ) : !tieneSemillas && totalSemillas === 0 ? (
           <EmptyState
             emoji="🌱"
-            title="Todavía no tienes puntos"
-            description="Cada vez que hagas un diagnóstico o uses la app, ganarás puntos que podrás canjear por descuentos y productos."
+            title="Aún no tienes semillas"
+            description="Cada vez que hagas un diagnóstico o uses la app, ganarás semillas que podrás canjear por descuentos y productos."
             action={
               <button
                 type="button"
@@ -220,10 +220,10 @@ export default function SemillasPage() {
               </div>
             )}
 
-            {/* Cómo ganar puntos */}
+            {/* Cómo ganar semillas */}
             <div className="card p-4">
               <h2 className="font-serif font-semibold text-gray-900 mb-3 text-sm">
-                Cómo ganar puntos
+                Cómo ganar semillas
               </h2>
               <div className="space-y-2.5">
                 {REGLAS_SEMILLAS.map((regla, i) => (
@@ -246,7 +246,7 @@ export default function SemillasPage() {
               onClick={() => router.push("/dashboard/beneficios")}
               className="btn-primary !rounded-2xl !py-4 !text-base"
             >
-              Canjear mis puntos por beneficios
+              Canjear semillas por beneficios
             </button>
 
             {/* Últimas transacciones */}
