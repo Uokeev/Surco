@@ -19,6 +19,7 @@ export default function DashboardPage() {
   const [alertas, setAlertas] = useState<AlertaZona[]>([]);
   const [alertasError, setAlertasError] = useState<string | null>(null);
   const [showClubCard, setShowClubCard] = useState(false);
+  const [nivelSurco, setNivelSurco] = useState<string | null>(null);
 
   const userName = user?.user_metadata?.full_name as string | undefined;
   const userPhoto = user?.user_metadata?.avatar_url as string | undefined;
@@ -70,6 +71,23 @@ export default function DashboardPage() {
     }
   }, []);
 
+  const loadNivelSurco = useCallback(async () => {
+    if (!user) return;
+    try {
+      const supabase = getSupabaseClient();
+      const { data } = await supabase
+        .from("resumen_club_surco")
+        .select("nivel")
+        .eq("user_id", user.id)
+        .single();
+      if (data) {
+        setNivelSurco((data as { nivel: string }).nivel);
+      }
+    } catch {
+      // Silencioso — no hay club o tabla no existe
+    }
+  }, [user]);
+
   const handleJoinClub = useCallback(async () => {
     try {
       const supabase = getSupabaseClient();
@@ -110,11 +128,14 @@ export default function DashboardPage() {
       loadAlertas().then(() => {
         if (cancelled) return;
       });
+      loadNivelSurco().then(() => {
+        if (cancelled) return;
+      });
     }
     return () => {
       cancelled = true;
     };
-  }, [user, loading, router, loadHistory, loadAlertas]);
+  }, [user, loading, router, loadHistory, loadAlertas, loadNivelSurco]);
 
   if (loading || !user) {
     return (
@@ -299,7 +320,7 @@ export default function DashboardPage() {
             <NavButton
               svgPath={<ProfileSvg />}
               label="Mi Perfil"
-              sub="Nivel Oro"
+              sub={nivelSurco ? `Nivel ${nivelSurco}` : "Tu cuenta"}
               onClick={() => router.push("/dashboard/perfil")}
             />
             <NavButton
