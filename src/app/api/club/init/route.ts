@@ -38,6 +38,14 @@ export async function POST(): Promise<NextResponse<ApiResponse<{ ok: boolean }>>
         created_at: new Date().toISOString(),
         last_login: new Date().toISOString(),
       });
+    } else {
+      // Corregir límite si es gratuito y tiene el default viejo (999)
+      await supabase
+        .from("users")
+        .update({ diagnosticos_limite: 10, updated_at: new Date().toISOString() })
+        .eq("id", user.id)
+        .eq("plan", "gratuito")
+        .neq("diagnosticos_limite", 10);
     }
 
     // ─── 2. Verificar si ya tiene semillas de bienvenida ──
