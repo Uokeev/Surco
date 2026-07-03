@@ -18,6 +18,7 @@ export default function DashboardPage() {
   const [historialError, setHistorialError] = useState<string | null>(null);
   const [alertas, setAlertas] = useState<AlertaZona[]>([]);
   const [alertasError, setAlertasError] = useState<string | null>(null);
+  const [showClubCard, setShowClubCard] = useState(false);
 
   const userName = user?.user_metadata?.full_name as string | undefined;
   const userPhoto = user?.user_metadata?.avatar_url as string | undefined;
@@ -69,6 +70,23 @@ export default function DashboardPage() {
     }
   }, []);
 
+  const handleJoinClub = useCallback(async () => {
+    try {
+      const supabase = getSupabaseClient();
+      await supabase.auth.updateUser({
+        data: { se_unio_al_club: true },
+      });
+    } catch {
+      // Silencioso — la metadata local se actualiza igual
+    }
+    setShowClubCard(false);
+    router.push("/dashboard/semillas");
+  }, [router]);
+
+  const dismissClubCard = useCallback(() => {
+    setShowClubCard(false);
+  }, []);
+
   useEffect(() => {
     if (!loading && !user) {
       router.replace("/");
@@ -79,6 +97,11 @@ export default function DashboardPage() {
       router.replace("/onboarding");
       return;
     }
+    // Mostrar tarjeta Club Surco si no se ha unido
+    if (user) {
+      setShowClubCard(!user.user_metadata?.se_unio_al_club);
+    }
+
     let cancelled = false;
     if (user) {
       loadHistory().then(() => {
@@ -137,6 +160,66 @@ export default function DashboardPage() {
 
       {/* Body */}
       <main id="main-content" className="flex-1 px-5 pt-5 pb-8 overflow-y-auto space-y-5" tabIndex={-1}>
+        {/* Tarjeta flotante — Unirse a Surco Semillas */}
+        {showClubCard && (
+          <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-amber-50 via-yellow-50 to-orange-50 border border-amber-200 shadow-lg shadow-amber-200/30">
+            {/* Decoración de semillas flotando */}
+            <div className="absolute -top-4 -right-4 text-5xl opacity-10 select-none pointer-events-none rotate-12" aria-hidden="true">🌱🌿🌾</div>
+            <div className="absolute -bottom-2 -left-2 text-4xl opacity-10 select-none pointer-events-none -rotate-6" aria-hidden="true">🌻🌺</div>
+
+            <div className="relative p-5">
+              <div className="flex items-start justify-between mb-3">
+                <div className="w-10 h-10 rounded-xl bg-amber-100 flex items-center justify-center text-xl shrink-0 shadow-sm">
+                  🌱
+                </div>
+                <button
+                  type="button"
+                  onClick={dismissClubCard}
+                  className="w-7 h-7 rounded-full bg-white/70 hover:bg-white flex items-center justify-center text-gray-400 hover:text-gray-600 transition-all text-sm"
+                  aria-label="Cerrar invitación"
+                >
+                  ✕
+                </button>
+              </div>
+
+              <h2 className="font-serif text-lg font-bold text-gray-900 leading-tight">
+                Únete a <span className="text-amber-700">Surco Semillas</span>
+              </h2>
+              <p className="text-sm text-gray-600 mt-1.5 leading-relaxed">
+                Registra tus datos y cada diagnóstico, racha o logro te hará ganar semillas.
+                Puedes canjearlas por descuentos, productos y beneficios exclusivos.
+              </p>
+
+              <div className="flex items-center gap-3 mt-4">
+                <div className="flex items-center gap-1.5 text-xs text-gray-500">
+                  <span className="w-5 h-5 rounded-full bg-amber-100 flex items-center justify-center text-[10px]">🌾</span>
+                  Niveles
+                </div>
+                <div className="flex items-center gap-1.5 text-xs text-gray-500">
+                  <span className="w-5 h-5 rounded-full bg-amber-100 flex items-center justify-center text-[10px]">⭐</span>
+                  Rachas
+                </div>
+                <div className="flex items-center gap-1.5 text-xs text-gray-500">
+                  <span className="w-5 h-5 rounded-full bg-amber-100 flex items-center justify-center text-[10px]">🎁</span>
+                  Canje
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={handleJoinClub}
+                className="mt-4 w-full bg-gradient-to-r from-amber-600 to-orange-600 text-white rounded-xl py-3.5 px-5 text-sm font-semibold flex items-center justify-center gap-2 hover:from-amber-700 hover:to-orange-700 active:scale-[0.98] transition-all shadow-md"
+              >
+                Unirme al Club
+                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="5" y1="12" x2="19" y2="12"/>
+                  <polyline points="12 5 19 12 12 19"/>
+                </svg>
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Plan card */}
         <div className="card p-4 flex items-center justify-between">
           <div>
