@@ -332,20 +332,25 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* Alertas de zona */}
+        {/* Alertas de zona — versión compacta */}
         {alertasError && (
-          <section>
-            <h2 className="sec-label">Alertas en tu zona</h2>
-            <div className="card p-4 border-red-200 bg-red-50" role="alert">
-              <p className="text-sm text-red-700 font-medium">Error al cargar alertas</p>
-              <p className="text-xs text-red-600 mt-1">{alertasError}</p>
-            </div>
-          </section>
+          <div className="card p-3 border-red-200 bg-red-50 flex items-center gap-2" role="alert">
+            <span className="text-sm">⚠️</span>
+            <p className="text-xs text-red-700">{alertasError}</p>
+          </div>
         )}
         {!alertasError && alertas.length > 0 && (
-          <section>
-            <h2 className="sec-label">Alertas en tu zona</h2>
-            <div className="space-y-2">
+          <details className="group">
+            <summary className="flex items-center justify-between cursor-pointer list-none">
+              <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wider !mb-0">
+                Alertas en tu zona
+                <span className="ml-1.5 text-xs font-normal text-gray-400">({alertas.length})</span>
+              </h2>
+              <svg className="w-4 h-4 text-gray-400 transition-transform group-open:rotate-180" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="6 9 12 15 18 9" />
+              </svg>
+            </summary>
+            <div className="space-y-1.5 mt-3">
               {alertas.map((a, i) => {
                 const esLocal =
                   weather?.region &&
@@ -355,27 +360,19 @@ export default function DashboardPage() {
                 return (
                   <div
                     key={i}
-                    className={`card p-3.5 flex items-start gap-2.5 ${
+                    className={`card p-3 flex items-start gap-2 ${
                       esLocal ? "bg-warm-50 border-warm-200" : ""
                     }`}
                   >
-                    <span className="text-xl shrink-0">
-                      <svg className="w-5 h-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      {esLocal ? (
-                        <><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></>
-                      ) : (
-                        <><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></>
-                      )}
-                    </svg>
+                    <span className="text-base shrink-0 leading-none mt-0.5" aria-hidden="true">
+                      {esLocal ? "⚠️" : "📍"}
                     </span>
                     <div className="min-w-0">
                       <p className="text-sm font-semibold text-gray-900">
                         {a.enfermedad} en {a.cultivo}
                       </p>
                       <p className="text-xs text-gray-500 mt-0.5">
-                        {a.region} · {a.reportes} reporte
-                        {a.reportes > 1 ? "s" : ""} reciente
-                        {a.reportes > 1 ? "s" : ""}
+                        {a.region} · {a.reportes} reporte{a.reportes > 1 ? "s" : ""}
                       </p>
                       {esLocal && (
                         <p className="text-xs font-semibold text-warm-700 mt-1">
@@ -387,31 +384,39 @@ export default function DashboardPage() {
                 );
               })}
             </div>
-          </section>
+          </details>
         )}
 
-        {/* Historial */}
+        {/* Historial — versión compacta: max 2 + ver más */}
         <section>
-          <h2 className="sec-label">Historial reciente</h2>
+          <div className="flex items-center justify-between mb-2">
+            <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wider !mb-0">Historial reciente</h2>
+            {historial.length > 2 && (
+              <button
+                type="button"
+                onClick={() => router.push("/dashboard")}
+                className="text-xs font-medium text-forest-600 hover:text-forest-700"
+              >
+                Ver todo →
+              </button>
+            )}
+          </div>
           {historialLoading ? (
-            <div className="card p-8 text-center">
-              <div className="w-6 h-6 border-2 border-forest-600 border-t-transparent rounded-full animate-spin mx-auto mb-2" />
-              <p className="text-sm text-gray-500">Cargando historial...</p>
+            <div className="flex items-center justify-center py-6">
+              <div className="w-5 h-5 border-2 border-forest-600 border-t-transparent rounded-full animate-spin" />
             </div>
           ) : historialError ? (
-            <div className="card p-4 border-red-200 bg-red-50" role="alert">
-              <p className="text-sm text-red-700 font-medium">Error al cargar historial</p>
-              <p className="text-xs text-red-600 mt-1">{historialError}</p>
+            <div className="card p-3 border-red-200 bg-red-50 flex items-center gap-2" role="alert">
+              <span className="text-sm">⚠️</span>
+              <p className="text-xs text-red-700">{historialError}</p>
             </div>
           ) : historial.length === 0 ? (
-            <EmptyState
-              emoji=""
-              title="Aún no tienes diagnósticos"
-              description="Realiza tu primer diagnóstico"
-            />
+            <p className="text-sm text-gray-400 text-center py-4">
+              Aún no tienes diagnósticos — realiza tu primer consulta
+            </p>
           ) : (
-            <div className="space-y-2">
-              {historial.map((h) => {
+            <div className="space-y-1.5">
+              {historial.slice(0, 2).map((h) => {
                 const sevClass =
                   h.severidad === "Alta"
                     ? "bg-red-500"
@@ -419,7 +424,7 @@ export default function DashboardPage() {
                       ? "bg-warm-600"
                       : "bg-forest-500";
                 const fecha = h.created_at
-                  ? new Date(h.created_at).toLocaleDateString("es-CL")
+                  ? new Date(h.created_at).toLocaleDateString("es-CL", { day: "numeric", month: "short" })
                   : "—";
 
                 return (
@@ -427,37 +432,18 @@ export default function DashboardPage() {
                     key={h.id}
                     type="button"
                     onClick={() => router.push(`/diagnostico/${h.id}`)}
-                    className="card p-4 w-full text-left hover:bg-forest-50/50 transition-colors"
+                    className="card p-3 w-full text-left hover:bg-forest-50/50 transition-colors flex items-center gap-2.5"
                   >
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2 min-w-0">
-                        <span
-                          className={`w-2.5 h-2.5 rounded-full shrink-0 ${sevClass}`}
-                        />
-                        <span className="text-sm font-semibold text-gray-900 truncate">
-                          {h.enfermedad || "—"}
-                        </span>
-                      </div>
-                      <span className="text-xs text-gray-500 shrink-0 ml-2">
-                        {fecha}
+                    <span className={`w-2 h-2 rounded-full shrink-0 ${sevClass}`} />
+                    <div className="flex-1 min-w-0">
+                      <span className="text-sm font-semibold text-gray-900 truncate block">
+                        {h.enfermedad || "—"}
                       </span>
-                    </div>
-                    <div className="flex items-center justify-between mt-0.5">
                       <span className="text-xs text-gray-500">
-                        {h.crop} · {h.region}
+                        {h.crop}{h.region ? ` · ${h.region}` : ""}
                       </span>
-                      <svg
-                        width="14"
-                        height="14"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        className="text-gray-400"
-                      >
-                        <polyline points="9 18 15 12 9 6" />
-                      </svg>
                     </div>
+                    <span className="text-xs text-gray-400 shrink-0">{fecha}</span>
                   </button>
                 );
               })}

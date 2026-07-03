@@ -38,13 +38,20 @@ export function PlantaCard({ planta, onClick }: PlantaCardProps) {
   const diffColor = DIFICULTAD_COLOR[planta.dificultad] ?? "bg-gray-50 text-gray-700";
   const dificultadLabel = { facil: "Fácil", media: "Media", dificil: "Difícil" }[planta.dificultad] ?? planta.dificultad;
 
+  const propagacionLabel = {
+    agua: "Agua",
+    sphagnum: "Sphagnum",
+    sustrato: "Sustrato",
+    division: "División",
+  }[planta.propagacion_metodo] ?? planta.propagacion_metodo;
+
   return (
     <button
       type="button"
       onClick={onClick}
       className="card p-4 w-full text-left hover:bg-forest-50/50 active:bg-forest-100/50 transition-all"
     >
-      {/* Nombre */}
+      {/* Nombre + dificultad */}
       <div className="flex items-start justify-between gap-2 mb-2">
         <div className="flex-1 min-w-0">
           <h3 className="font-serif font-semibold text-gray-900 text-sm">
@@ -68,12 +75,19 @@ export function PlantaCard({ planta, onClick }: PlantaCardProps) {
         </p>
       )}
 
-      {/* Iconos rápidos */}
-      <div className="flex items-center gap-3 text-xs text-gray-500">
+      {/* Primera fila: datos esenciales */}
+      <div className="flex items-center gap-3 text-xs text-gray-500 mb-1.5">
         <span title="Luz">{LUZ_ICONO[planta.luz] ?? "💡"} {planta.luz}</span>
         <span title="Humedad mínima">💧 {planta.humedad_min}%</span>
         <span title="Toxicidad">{TOXICIDAD_ICONO[planta.toxicidad]}</span>
         <span title="Crecimiento">{CRECIMIENTO_ICONO[planta.crecimiento] ?? "🌱"}</span>
+      </div>
+
+      {/* Segunda fila: temperatura, propagación, origen */}
+      <div className="flex items-center gap-3 text-xs text-gray-400">
+        <span title="Temperatura">🌡 {planta.temp_min}°–{planta.temp_optima_max}°C</span>
+        <span title="Propagación">🌱 {propagacionLabel}</span>
+        {planta.origen && <span title="Origen">🗺 {planta.origen}</span>}
       </div>
     </button>
   );
