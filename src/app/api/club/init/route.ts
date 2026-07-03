@@ -39,13 +39,14 @@ export async function POST(): Promise<NextResponse<ApiResponse<{ ok: boolean }>>
         last_login: new Date().toISOString(),
       });
     } else {
-      // Corregir límite si es gratuito y tiene el default viejo (999)
+      // Corregir solo si AUN tiene el DEFAULT VIEJO (999)
+      // No tocar si ya se canjeó +5 diagnósticos o tiene otro valor
       await supabase
         .from("users")
         .update({ diagnosticos_limite: 10, updated_at: new Date().toISOString() })
         .eq("id", user.id)
         .eq("plan", "gratuito")
-        .neq("diagnosticos_limite", 10);
+        .eq("diagnosticos_limite", 999);
     }
 
     // ─── 2. Verificar si ya tiene semillas de bienvenida ──
