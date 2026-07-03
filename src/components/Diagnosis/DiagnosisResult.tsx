@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import type { DiagnosticoResult, CondicionesClimaticas, UsoTipo } from "@/types";
 import { Calculator } from "@/components/Calculator/Calculator";
 
@@ -13,6 +12,24 @@ interface DiagnosisResultProps {
   usoTipo: UsoTipo;
 }
 
+/** Extrae el nombre del producto de un texto de paso tipo "Paso N — Producto: instrucción" */
+function extraerProducto(paso: string): string {
+  const sinPaso = paso.replace(/^Paso\s*\d+\s*[—\-:]\s*/i, "").trim();
+  // Si tiene ":" tomamos lo que va antes del primer ":"
+  const partes = sinPaso.split(":");
+  return partes[0]?.trim() ?? sinPaso.substring(0, 50);
+}
+
+/** Extrae la instrucción después del nombre del producto */
+function extraerInstruccion(paso: string): string {
+  const sinPaso = paso.replace(/^Paso\s*\d+\s*[—\-:]\s*/i, "").trim();
+  const partes = sinPaso.split(":");
+  if (partes.length > 1) {
+    return partes.slice(1).join(":").trim();
+  }
+  return "";
+}
+
 export function DiagnosisResult({
   result,
   crop,
@@ -21,7 +38,6 @@ export function DiagnosisResult({
   weather,
   usoTipo,
 }: DiagnosisResultProps) {
-  const [currentStep, setCurrentStep] = useState(0);
   const pasos = result.tratamiento ?? [];
 
   const severidadColor =
@@ -32,10 +48,6 @@ export function DiagnosisResult({
         : "bg-green-50 text-green-700 border-green-200";
 
   const mapsQuery = `https://www.google.com/maps/search/agroveterinaria+productos+fitosanitarios+Chile`;
-
-  const stepForward = () =>
-    setCurrentStep((p) => Math.min(pasos.length - 1, p + 1));
-  const stepBackward = () => setCurrentStep((p) => Math.max(0, p - 1));
 
   return (
     <div className="space-y-4">
@@ -135,61 +147,66 @@ export function DiagnosisResult({
         </div>
       )}
 
-      {/* Pasos de tratamiento */}
+      {/* Pasos de tratamiento — versión lista vertical */}
       {pasos.length > 0 && (
         <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm">
-          <h3 className="text-sm font-bold text-gray-900 mb-3">
-            Qué hacer — paso a paso
+          <h3 className="text-sm font-bold text-gray-900 mb-1">
+            📋 Qué hacer — paso a paso
           </h3>
+          <p className="text-xs text-gray-500 mb-4">
+            Sigue estos pasos en orden
+          </p>
 
-          <div className="text-xs text-gray-500 mb-3 text-center">
-            Paso {currentStep + 1} de {pasos.length}
-          </div>
+          <div className="space-y-3">
+            {pasos.map((paso, i) => {
+              const producto = extraerProducto(paso);
+              const instruccion = extraerInstruccion(paso);
+              const queryML = encodeURIComponent(producto + " Chile");
 
-          <div
-            key={currentStep}
-            className="bg-forest-50 rounded-xl p-4 min-h-[80px] flex items-start gap-3 transition-all duration-300"
-          >
-            <span className="bg-forest-800 text-white w-7 h-7 rounded-full flex items-center justify-center text-sm font-bold shrink-0 mt-0.5">
-              {currentStep + 1}
-            </span>
-            <p className="text-sm text-gray-800 leading-relaxed">
-              {pasos[currentStep]}
-            </p>
-          </div>
-
-          <div className="flex items-center justify-between mt-3 gap-2">
-            <button
-              type="button"
-              onClick={stepBackward}
-              disabled={currentStep === 0}
-              className="px-4 py-2 text-sm font-medium rounded-xl border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-            >
-              ← Anterior
-            </button>
-
-            <div className="flex items-center gap-1.5" role="tablist" aria-label="Progreso de pasos">
-              {pasos.map((_, i) => (
+              return (
                 <div
                   key={i}
-                  role="tab"
-                  aria-selected={i === currentStep}
-                  aria-label={`Paso ${i + 1}`}
-                  className={`w-2 h-2 rounded-full transition-colors ${
-                    i === currentStep ? "bg-forest-800" : "bg-gray-200"
-                  }`}
-                />
-              ))}
-            </div>
+                  className="bg-forest-50 rounded-xl p-4 flex items-start gap-3"
+                >
+                  {/* Número de paso grande */}
+                  <span className="bg-forest-800 text-white w-8 h-8 rounded-xl flex items-center justify-center text-sm font-bold shrink-0 mt-0.5">
+                    {i + 1}
+                  </span>
 
-            <button
-              type="button"
-              onClick={stepForward}
-              disabled={currentStep === pasos.length - 1}
-              className="px-4 py-2 text-sm font-medium rounded-xl bg-forest-800 text-white hover:bg-forest-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-            >
-              Siguiente →
-            </button>
+                  <div className="flex-1 min-w-0 space-y-1.5">
+                    {/* Producto en negrita */}
+                    {producto && (
+                      <p className="text-sm font-bold text-gray-900 leading-tight">
+                        {producto}
+                      </p>
+                    )}
+
+                    {/* Instrucción */}
+                    {instruccion ? (
+                      <p className="text-sm text-gray-700 leading-relaxed">
+                        {instruccion}
+                      </p>
+                    ) : (
+                      <p className="text-sm text-gray-700 leading-relaxed">
+                        {paso.replace(/^Paso\s*\d+\s*[—\-:]\s*/i, "")}
+                      </p>
+                    )}
+
+                    {/* Link a MercadoLibre */}
+                    {producto && (
+                      <a
+                        href={`https://listado.mercadolibre.cl/${queryML}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 mt-1 text-xs font-semibold text-[#8f7e00] bg-[#fff159] rounded-lg px-3 py-1.5 hover:brightness-95 transition-all active:scale-[0.97]"
+                      >
+                        Ver en MercadoLibre →
+                      </a>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </div>
       )}
@@ -209,13 +226,8 @@ export function DiagnosisResult({
 
           <div className="space-y-2">
             {pasos.map((paso, i) => {
-              const nombreProducto =
-                paso.split("—")[1]?.split(":")[0]?.trim() ??
-                paso.split(":")[0]?.replace(/^Paso \d+/, "").trim() ??
-                paso.substring(0, 40);
-              const queryML = encodeURIComponent(
-                nombreProducto + " Chile"
-              );
+              const producto = extraerProducto(paso);
+              const queryML = encodeURIComponent(producto + " Chile");
 
               return (
                 <a
@@ -230,7 +242,7 @@ export function DiagnosisResult({
                   </span>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-semibold text-gray-800 truncate">
-                      {nombreProducto}
+                      {producto}
                     </p>
                     <p className="text-xs text-gray-500">
                       Ver en MercadoLibre →
@@ -246,7 +258,7 @@ export function DiagnosisResult({
             ¿No encuentras?{' '}
             <a
               href={`https://www.google.com/search?q=${encodeURIComponent(
-                pasos.map(p => p.split("—")[1]?.split(":")[0]?.trim() ?? p.substring(0, 30)).filter(Boolean).join(" ")
+                pasos.map(p => extraerProducto(p)).filter(Boolean).join(" ")
               )} Chile`}
               target="_blank"
               rel="noopener noreferrer"
