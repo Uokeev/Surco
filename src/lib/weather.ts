@@ -1,11 +1,11 @@
 import type { CondicionesClimaticas, Coordenadas } from "@/types";
 
 const OPEN_METEO_URL = "https://api.open-meteo.com/v1/forecast";
-const NOMINATIM_URL = "https://nominatim.openstreetmap.org/reverse";
 
 /**
  * Obtiene condiciones climáticas actuales para unas coordenadas.
- * Usa Open-Meteo (gratis, sin API key) + Nominatim (geocoding inverso).
+ * Usa Open-Meteo (gratis, sin API key). El nombre de ciudad se
+ * obtiene desde las coordenadas sin depender de APIs externas frágiles.
  */
 export async function obtenerClima(
   coords: Coordenadas
@@ -23,9 +23,13 @@ export async function obtenerClima(
     weatherUrl.searchParams.set("timezone", "auto");
     weatherUrl.searchParams.set("forecast_days", "3");
 
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 8000);
+
     const weatherRes = await fetch(weatherUrl.toString(), {
-      next: { revalidate: 300 }, // cache por 5 min en server components
+      signal: controller.signal,
     });
+    clearTimeout(timeoutId);
 
     if (!weatherRes.ok) {
       console.warn("Open-Meteo error:", weatherRes.status);
@@ -34,33 +38,16 @@ export async function obtenerClima(
 
     const weatherData = await weatherRes.json();
     const current = weatherData.current;
-    if (!current) return null;
-
-    // 2. Geocoding inverso (nombre de ciudad)
-    const geoUrl = new URL(NOMINATIM_URL);
-    geoUrl.searchParams.set("lat", String(coords.lat));
-    geoUrl.searchParams.set("lon", String(coords.lon));
-    geoUrl.searchParams.set("format", "json");
-
-    const geoRes = await fetch(geoUrl.toString(), {
-      headers: {
-        "User-Agent": "SurcoApp/1.0 (diagnostico@surco.cl)",
-      },
-      next: { revalidate: 86400 }, // cache por 24h
-    });
-
-    let ciudad = "Chile";
-    let region = "Chile";
-
-    if (geoRes.ok) {
-      const geoData = await geoRes.json();
-      ciudad =
-        geoData.address?.city ??
-        geoData.address?.town ??
-        geoData.address?.village ??
-        "Chile";
-      region = geoData.address?.state ?? "Chile";
+    if (!current) {
+      console.warn("Open-Meteo: respuesta sin current", JSON.stringify(weatherData).slice(0, 200));
+      return null;
     }
+
+    // 2. Nombre de ciudad desde las coordenadas (formato lat,lon)
+    const latDir = coords.lat >= 0 ? "S" : "N";
+    const lonDir = coords.lon >= 0 ? "O" : "E";
+    const ciudad = `${Math.abs(coords.lat).toFixed(2)}°${latDir}, ${Math.abs(coords.lon).toFixed(2)}°${lonDir}`;
+    const region = `${Math.abs(coords.lat).toFixed(1)}°${latDir}`;
 
     // 3. Armar resultado
     const lluvia3dias = (weatherData.daily?.precipitation_sum ?? [])
@@ -69,16 +56,19 @@ export async function obtenerClima(
       .toFixed(1);
 
     return {
-      temperatura: Math.round(current.temperature_2m),
-      humedad: Math.round(current.relative_humidity_2m),
-      precipitacion: Math.round(current.precipitation * 10) / 10,
-      viento: Math.round(current.wind_speed_10m),
+      temperatura: Math.round(current.temperature_2m ?? 0),
+      humedad: Math.round(current.relative_humidity_2m ?? 0),
+      precipitacion: current.precipitation != null
+        ? Math.round(current.precipitation * 10) / 10
+        : 0,
+      viento: Math.round(current.wind_speed_10m ?? 0),
       ciudad,
       region,
       lluvia_3dias: lluvia3dias,
     };
   } catch (error) {
-    console.warn("Error obteniendo clima:", error);
+    const msg = error instanceof Error ? error.message : "Error desconocido";
+    console.warn("Error obteniendo clima:", msg);
     return null;
   }
 }
