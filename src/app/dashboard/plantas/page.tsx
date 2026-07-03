@@ -66,6 +66,14 @@ export default function CatalogoPlantasPage() {
     <div className="max-w-4xl mx-auto px-4 py-8">
       {/* Encabezado */}
       <div className="mb-8">
+        <button
+          type="button"
+          onClick={() => router.back()}
+          className="w-9 h-9 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center text-gray-600 hover:text-gray-900 transition-colors mb-3"
+          aria-label="Volver atrás"
+        >
+          ←
+        </button>
         <h1 className="text-2xl font-serif font-bold text-gray-900">
           Catálogo de Plantas de Interior 🌿
         </h1>
